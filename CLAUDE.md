@@ -2,16 +2,48 @@
 
 > Agent context for mor-diem-sdk.
 
-## What This Is
+## Critical: The Two Pieces
 
-SDK and CLI for the Morpheus AI network. Stake MOR, access AI inference.
+There are TWO pieces. mor-diem-sdk is ONE of them:
 
-**We are NOT a consumer node.** We provide tools that talk to one:
-- **SDK** (`src/`) - TypeScript client
-- **Proxy** (`src/proxy/morpheus-proxy.mjs`) - OpenAI API → Morpheus protocol translator (embeddable)
-- **CLI** (`bin/`) - Command-line tools
+| Piece | Port | Code | What It Does |
+|-------|------|------|--------------|
+| **OpenAI Translator** | 8083 | `src/proxy/morpheus-proxy.mjs` (mor-diem-sdk) | Converts OpenAI API calls to Morpheus format |
+| **Morpheus Node** | 9081 | [Lumerin binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (external, ~56MB download) | Connects to P2P network, stakes MOR, talks to providers |
 
-The actual [Consumer Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/blob/main/docs/04-consumer-setup.md) is Morpheus's `proxy-router` binary (~56MB) that users download separately.
+**Standalone mode:**
+```
+Your App → mor-diem-sdk Translator (8083) → Morpheus Node (9081) → AI Providers
+                  ↑                                ↑
+           separate process                   separate binary
+```
+
+**Embedded mode (proxy in same process as your app):**
+```
+┌─────────────────────────────────┐
+│ Your App Process                │
+│  Your Code → SDK → Translator   │ ──→ Morpheus Node (9081) → AI Providers
+│         (all mor-diem-sdk)      │            ↑
+└─────────────────────────────────┘      separate binary
+```
+
+**Connection is configured via env var:**
+```bash
+MORPHEUS_ROUTER_URL=http://localhost:9081  # default - you run the node locally
+MORPHEUS_ROUTER_URL=http://1.2.3.4:9081    # point to remote node (if you have one)
+```
+
+**Users must either:**
+1. **Download and run** the [Morpheus Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) locally on port 9081
+2. **Use api.mor.org** instead (pay USD, skip all of this)
+
+There is **no public Morpheus Node**. You run it yourself or use api.mor.org.
+
+## Confusing Names
+
+Morpheus calls their binary `proxy-router`. We call our file `morpheus-proxy.mjs`. Both have "proxy" in the name. Ignore that. Just remember:
+- **Ours (8083):** Translates API format
+- **Theirs (9081):** Actually connects to the network
 
 ## Stack
 
