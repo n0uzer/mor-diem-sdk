@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+// @bun
 import { createRequire } from "node:module";
 var __defProp = Object.defineProperty;
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
@@ -12960,6 +12962,12 @@ zoo`.split(`
 `);
 });
 
+// src/cli/mor-diem.ts
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import * as readline2 from "readline";
+
 // node_modules/@scure/bip32/lib/esm/index.js
 init_modular();
 init_secp256k1();
@@ -25033,17 +25041,6 @@ var STANDARD_MODEL_DEFAULT_TOKENS = 256;
 var P2P_BASE_URL = "http://127.0.0.1:8083";
 var DEFAULT_MODEL = "kimi-k2.5";
 var DEFAULT_TIMEOUT = 300000;
-var AVAILABLE_MODELS = [
-  "kimi-k2.5",
-  "kimi-k2.5:web",
-  "kimi-k2-thinking",
-  "glm-4.7-flash",
-  "glm-4.7",
-  "qwen3-235b",
-  "llama-3.3-70b",
-  "gpt-oss-120b"
-];
-
 class MorpheusClient {
   baseUrl;
   apiKey;
@@ -25213,12 +25210,6 @@ class MorpheusClient {
     }
   }
 }
-function createP2PClient(options) {
-  return new MorpheusClient({
-    ...options,
-    baseUrl: options?.baseUrl ?? P2P_BASE_URL
-  });
-}
 // src/index.ts
 class MorDiemSDK {
   config;
@@ -25315,28 +25306,1700 @@ class MorDiemSDK {
 function deriveWallet(mnemonic, index2 = 0) {
   return deriveWalletFromMnemonic(mnemonic, index2);
 }
-var src_default = MorDiemSDK;
-export {
-  swapUsdcForMor,
-  swapEthForMor,
-  isValidMnemonic,
-  getWalletClient,
-  getPublicClient,
-  getPrivateKey,
-  getBalances,
-  getAccount,
-  generateNewMnemonic,
-  generateNewMnemonic as generateMnemonic,
-  deriveWalletFromMnemonic,
-  deriveWallet,
-  src_default as default,
-  createP2PClient,
-  approveMor,
-  THINKING_MODEL_DEFAULT_TOKENS,
-  THINKING_MODELS,
-  STANDARD_MODEL_DEFAULT_TOKENS,
-  MorpheusClient,
-  MorDiemSDK,
-  CONTRACTS,
-  AVAILABLE_MODELS
+
+// src/cli/chat.ts
+import * as readline from "node:readline";
+var MODEL_CONFIGS = {
+  "kimi-k2.5": { contextWindow: 131072, description: "General reasoning (default)" },
+  "kimi-k2.5:web": { contextWindow: 131072, description: "Web-search enabled" },
+  "kimi-k2-thinking": { contextWindow: 131072, description: "Extended reasoning" },
+  "glm-4.7-flash": { contextWindow: 131072, description: "Fast inference" },
+  "glm-4.7": { contextWindow: 131072, description: "Full reasoning model" },
+  "glm-5": { contextWindow: 131072, description: "Latest GLM model" },
+  "hermes-4-14b": { contextWindow: 32768, description: "Hermes instruct" },
+  "gpt-oss-120b": { contextWindow: 131072, description: "Open-source GPT" },
+  "MiniMax-M2.5": { contextWindow: 131072, description: "MiniMax model" }
 };
+var DEFAULT_CONTEXT_WINDOW = 32768;
+var COMPACT_THRESHOLD_RATIO = 0.7;
+var CHARS_PER_TOKEN = 4;
+var c = {
+  reset: "\x1B[0m",
+  dim: "\x1B[2m",
+  bold: "\x1B[1m",
+  italic: "\x1B[3m",
+  cyan: "\x1B[36m",
+  green: "\x1B[32m",
+  yellow: "\x1B[33m",
+  magenta: "\x1B[35m",
+  blue: "\x1B[34m",
+  gray: "\x1B[90m",
+  white: "\x1B[37m",
+  red: "\x1B[31m",
+  bgBlue: "\x1B[44m",
+  bgGray: "\x1B[100m"
+};
+function box(title, content, width = 60) {
+  const top = `╭${"─".repeat(width - 2)}╮`;
+  const bottom = `╰${"─".repeat(width - 2)}╯`;
+  const titleLine = `│ ${c.bold}${title}${c.reset}${" ".repeat(width - 4 - title.length)} │`;
+  const divider = `├${"─".repeat(width - 2)}┤`;
+  const lines = content.map((line) => {
+    const stripped = line.replace(/\x1b\[[0-9;]*m/g, "");
+    const padding2 = Math.max(0, width - 4 - stripped.length);
+    return `│ ${line}${" ".repeat(padding2)} │`;
+  });
+  return [top, titleLine, divider, ...lines, bottom].join(`
+`);
+}
+function formatTokens(tokens) {
+  if (tokens >= 1000)
+    return `${(tokens / 1000).toFixed(1)}k`;
+  return tokens.toString();
+}
+var LEARN_CONTENT = {
+  overview: `
+${c.cyan}${c.bold}MOR DIEM SDK${c.reset}
+${c.dim}Morpheus Decentralized Inference SDK${c.reset}
+
+MOR DIEM provides access to decentralized AI inference through
+the Morpheus network. Instead of paying per-token like traditional
+APIs, you ${c.green}deposit MOR tokens${c.reset} to unlock inference sessions.
+
+${c.yellow}Key Differences from Traditional APIs:${c.reset}
+  • No per-token billing - deposit once, use unlimited
+  • 7-day session windows - one deposit unlocks a full week
+  • MOR tokens ${c.green}returned${c.reset} - this is a deposit, not a payment
+  • Decentralized - no single point of failure
+
+${c.cyan}Architecture:${c.reset}
+  Your App → MOR DIEM SDK → morpheus-proxy → blockchain → AI providers
+`,
+  staking: `
+${c.cyan}${c.bold}How MOR Staking Works${c.reset}
+
+${c.yellow}Think: Refundable Deposit, Not Payment${c.reset}
+
+  ┌────────────────────────────────────────────────────────┐
+  │  This is NOT like paying for a subscription.           │
+  │                                                        │
+  │  Your MOR is a ${c.green}refundable security deposit${c.reset}.          │
+  │  Lock it → get access → get it back.                   │
+  │                                                        │
+  │  You ${c.bold}own${c.reset} your tokens the whole time.                  │
+  │  They generate access, then return to you.             │
+  └────────────────────────────────────────────────────────┘
+
+${c.yellow}One Session Per Model:${c.reset}
+  Each AI model requires its ${c.bold}own session${c.reset} with its provider.
+  Use 5 models? That's 5 sessions with 5 separate deposits.
+  The SDK opens sessions automatically when you chat.
+
+${c.yellow}The Flow:${c.reset}
+  1. ${c.green}Approve${c.reset} - Allow Diamond contract to use your MOR
+  2. ${c.green}Deposit${c.reset} - Lock ~2 MOR per model for 7 days
+  3. ${c.green}Use${c.reset} - Unlimited inference during session
+  4. ${c.green}Release${c.reset} - MOR returned to your wallet
+
+${c.yellow}Economics:${c.reset}
+  • Deposit per session: ${c.green}~2 MOR${c.reset} (varies by provider)
+  • Session duration: ${c.green}7 days${c.reset}
+  • Gas: ~0.0001 ETH per session (Base chain)
+
+${c.yellow}Usage Limits (Pro-Rata Model):${c.reset}
+  The network has a ${c.green}daily compute budget${c.reset} (~24k MOR).
+  Your share = (Your Staked MOR ÷ Total Network Stake) × Daily Budget
+
+  ${c.dim}In practice: sessions appear unlimited for typical use.
+  Heavy users may hit pro-rata limits (exact enforcement unclear).${c.reset}
+
+${c.cyan}Your MOR is DEPOSITED, not SPENT.${c.reset}
+Tokens are locked temporarily, then returned automatically.
+Use /budget to check network compute budget.
+`,
+  diem: `
+${c.cyan}${c.bold}What is MOR DIEM?${c.reset}
+
+DIEM = ${c.green}Decentralized Inference Execution Model${c.reset}
+
+MOR DIEM is like an ${c.green}annuity for AI access${c.reset}:
+  • You own the MOR tokens
+  • They generate inference access
+  • You keep the principal
+
+${c.yellow}Core Concepts:${c.reset}
+  • ${c.green}Sessions${c.reset} - Time-bound access windows (7 days default)
+  • ${c.green}Deposits${c.reset} - MOR tokens locked as refundable collateral
+  • ${c.green}Epochs${c.reset} - Network coordination periods
+  • ${c.green}Providers${c.reset} - Decentralized compute nodes
+
+${c.yellow}The Economic Model:${c.reset}
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  Traditional API:  Pay $$ → Use → $$ is gone            │
+  │                                                         │
+  │  MOR DIEM:         Deposit MOR → Use → MOR returned     │
+  │                    (you keep your tokens)               │
+  └─────────────────────────────────────────────────────────┘
+
+${c.cyan}Your MOR generates access, then comes back to you.${c.reset}
+`,
+  epochs: `
+${c.cyan}${c.bold}How Epochs Work${c.reset}
+
+The Morpheus network operates in discrete ${c.green}epochs${c.reset} - time
+periods that coordinate provider availability and pricing.
+
+${c.yellow}Epoch Functions:${c.reset}
+  • Define provider ${c.green}availability${c.reset} for each model
+  • Set ${c.green}pricing tiers${c.reset} (LIGHT, STANDARD, HEAVY)
+  • Update ${c.green}model registries${c.reset} on-chain
+  • Coordinate ${c.green}provider bids${c.reset}
+
+${c.yellow}Model Categories:${c.reset}
+  LIGHT    - Fast, efficient models (glm-4.7-flash)
+  STANDARD - General purpose (kimi-k2.5, llama-3.3)
+  HEAVY    - Large models (qwen3-235b, gpt-oss-120b)
+
+${c.yellow}Dynamic Updates:${c.reset}
+  The proxy refreshes model mappings every 5 minutes from
+  the blockchain, picking up new models as they register.
+
+${c.cyan}Epochs ensure fair provider compensation and reliable service.${c.reset}
+`,
+  wallet: `
+${c.cyan}${c.bold}Wallet Setup & Security${c.reset}
+
+${c.yellow}Where Keys Are Stored:${c.reset}
+  Your wallet credentials are stored in environment variables:
+
+  ${c.green}MOR_MNEMONIC${c.reset}      - 12 or 24 word seed phrase
+  ${c.green}MOR_PRIVATE_KEY${c.reset}   - Alternative: raw private key
+  ${c.green}MOR_WALLET_INDEX${c.reset}  - Derivation index (default: 0)
+
+${c.yellow}How to Set Up:${c.reset}
+  1. Generate mnemonic: ${c.dim}bun run cli wallet generate${c.reset}
+  2. Export to env:     ${c.dim}export MOR_MNEMONIC="word1 word2 ..."${c.reset}
+  3. Check balance:     ${c.dim}bun run cli wallet balance${c.reset}
+
+${c.yellow}Funding Your Wallet:${c.reset}
+  1. Get wallet address from CLI
+  2. Send ETH to address (for gas, ~0.01 ETH)
+  3. Send MOR to address (minimum 5 MOR for sessions)
+
+  Buy MOR: Swap ETH/USDC on Uniswap (Arbitrum)
+  Contract: ${c.dim}0x092bAaDB7DEf4C3981454dD9c0A0D7FF07bCFc86${c.reset}
+
+${c.red}NEVER commit your mnemonic or private key to git!${c.reset}
+${c.red}NEVER share your seed phrase with anyone!${c.reset}
+`,
+  models: `
+${c.cyan}${c.bold}Available Models${c.reset}
+
+${c.yellow}Reasoning Models:${c.reset}
+  ${c.green}kimi-k2.5${c.reset}          - General reasoning (recommended)
+  ${c.green}kimi-k2.5:web${c.reset}      - Web search enabled
+  ${c.green}kimi-k2-thinking${c.reset}   - Extended reasoning with thinking
+
+${c.yellow}Fast Models:${c.reset}
+  ${c.green}glm-4.7-flash${c.reset}      - Quick responses, lower latency
+  ${c.green}glm-4.7${c.reset}            - Full GLM reasoning
+
+${c.yellow}Large Models:${c.reset}
+  ${c.green}qwen3-235b${c.reset}         - 235B params, multilingual
+  ${c.green}llama-3.3-70b${c.reset}      - Meta's Llama 3.3
+  ${c.green}gpt-oss-120b${c.reset}       - Open-source GPT variant
+
+${c.yellow}Context Windows:${c.reset}
+  All models support ${c.green}128k tokens${c.reset} context
+
+${c.yellow}Switching Models:${c.reset}
+  Use ${c.green}/model${c.reset} in chat to switch between models.
+  Memory is preserved when switching.
+`
+};
+var SLASH_COMMANDS = {
+  help: {
+    description: "Show available commands",
+    handler: async () => {
+      console.log(`
+${c.cyan}${c.bold}Commands${c.reset}
+`);
+      console.log(`${c.dim}Chat Commands:${c.reset}`);
+      console.log(`  ${c.green}/model${c.reset}      Change the active model`);
+      console.log(`  ${c.green}/system${c.reset}     Set system prompt`);
+      console.log(`  ${c.green}/clear${c.reset}      Clear conversation history`);
+      console.log(`  ${c.green}/compact${c.reset}    Force memory compaction`);
+      console.log(`  ${c.green}/history${c.reset}    Show conversation history`);
+      console.log(`  ${c.green}/toggle${c.reset}     Toggle options (reasoning, verbose)`);
+      console.log("");
+      console.log(`${c.dim}Info Commands:${c.reset}`);
+      console.log(`  ${c.green}/status${c.reset}     Show session & wallet metrics`);
+      console.log(`  ${c.green}/wallet${c.reset}     Show wallet balance`);
+      console.log(`  ${c.green}/budget${c.reset}     Show network compute budget`);
+      console.log(`  ${c.green}/learn${c.reset}      Learn about MOR ecosystem`);
+      console.log("");
+      console.log(`${c.dim}Navigation:${c.reset}`);
+      console.log(`  ${c.green}/menu${c.reset}       Return to main menu`);
+      console.log(`  ${c.green}/exit${c.reset}       Exit the CLI (or Ctrl+C)`);
+      console.log("");
+      return true;
+    }
+  },
+  status: {
+    description: "Show session & wallet metrics",
+    handler: async (state) => {
+      await printMetrics(state);
+      return true;
+    }
+  },
+  wallet: {
+    description: "Show wallet balance",
+    handler: async (state) => {
+      await refreshWalletBalance(state);
+      return true;
+    }
+  },
+  budget: {
+    description: "Show network compute budget",
+    handler: async () => {
+      const routerUrl = process.env.MORPHEUS_ROUTER_URL || "http://localhost:9081";
+      const authHeader = `Basic ${Buffer.from("admin:admin").toString("base64")}`;
+      console.log(`
+${c.cyan}Fetching network budget...${c.reset}`);
+      try {
+        const resp = await fetch(`${routerUrl}/blockchain/sessions/budget`, {
+          headers: { Authorization: authHeader }
+        });
+        if (!resp.ok) {
+          console.log(`${c.yellow}Could not fetch budget (router returned ${resp.status})${c.reset}
+`);
+          return true;
+        }
+        const data = await resp.json();
+        const budgetMor = (Number(data.budget) / 1000000000000000000).toFixed(2);
+        console.log(`
+${c.cyan}${c.bold}Network Compute Budget${c.reset}
+`);
+        console.log(`  ${c.green}Today's Budget:${c.reset} ${budgetMor} MOR`);
+        console.log(`  ${c.dim}(Total compute budget for all users today)${c.reset}`);
+        console.log("");
+        console.log(`${c.yellow}Pro-Rata Model:${c.reset}`);
+        console.log("  Your share = (Your Staked MOR ÷ Total Staked) × Daily Budget");
+        console.log(`  ${c.dim}Example: 10 MOR staked with 10M total = 0.0001% = ~0.024 MOR/day${c.reset}`);
+        console.log("");
+        console.log(`${c.dim}Note: Per-user budget tracking not exposed by router API.${c.reset}`);
+        console.log(`${c.dim}In practice, sessions appear unlimited for typical use.${c.reset}
+`);
+      } catch (e) {
+        console.log(`
+${c.yellow}Could not fetch budget: ${e instanceof Error ? e.message : String(e)}${c.reset}`);
+        console.log(`${c.dim}Is the router running at ${routerUrl}?${c.reset}
+`);
+      }
+      return true;
+    }
+  },
+  clear: {
+    description: "Clear conversation history",
+    handler: async (state) => {
+      state.messages = state.systemPrompt ? [{ role: "system", content: state.systemPrompt }] : [];
+      state.tokenEstimate = estimateMessagesTokens(state.messages);
+      console.log(`
+${c.yellow}Conversation cleared.${c.reset}
+`);
+      return true;
+    }
+  },
+  compact: {
+    description: "Force conversation compaction",
+    handler: async (state, client) => {
+      if (state.messages.length < 4) {
+        console.log(`
+${c.yellow}Not enough messages to compact.${c.reset}
+`);
+        return true;
+      }
+      console.log(`
+${c.cyan}Compacting conversation...${c.reset}`);
+      state.messages = await compactConversation(client, state);
+      state.tokenEstimate = estimateMessagesTokens(state.messages);
+      state.compactionCount++;
+      await printMetrics(state);
+      return true;
+    }
+  },
+  model: {
+    description: "Change the active model",
+    handler: async (state, client, _args, rl) => {
+      const newModel = await selectModel(client, rl, state.model.id);
+      if (newModel) {
+        const config = MODEL_CONFIGS[newModel] || { contextWindow: DEFAULT_CONTEXT_WINDOW };
+        state.model = {
+          id: newModel,
+          contextWindow: config.contextWindow,
+          compactAt: Math.floor(config.contextWindow * COMPACT_THRESHOLD_RATIO)
+        };
+        console.log(`
+${c.green}Switched to ${newModel}${c.reset}
+`);
+      }
+      return true;
+    }
+  },
+  system: {
+    description: "Set system prompt",
+    handler: async (state, _client, args) => {
+      if (!args.trim()) {
+        if (state.systemPrompt) {
+          console.log(`
+${c.cyan}Current system prompt:${c.reset}`);
+          console.log(`${c.dim}${state.systemPrompt}${c.reset}
+`);
+        } else {
+          console.log(`
+${c.dim}No system prompt set. Use /system <prompt>${c.reset}
+`);
+        }
+        return true;
+      }
+      state.systemPrompt = args.trim();
+      if (state.messages.length > 0 && state.messages[0].role === "system") {
+        state.messages[0].content = state.systemPrompt;
+      } else {
+        state.messages.unshift({ role: "system", content: state.systemPrompt });
+      }
+      state.tokenEstimate = estimateMessagesTokens(state.messages);
+      console.log(`
+${c.green}System prompt updated.${c.reset}
+`);
+      return true;
+    }
+  },
+  history: {
+    description: "Show conversation history",
+    handler: async (state) => {
+      console.log(`
+${c.cyan}${c.bold}Conversation History${c.reset}
+`);
+      if (state.messages.length === 0) {
+        console.log(`${c.dim}No messages yet.${c.reset}
+`);
+        return true;
+      }
+      for (const msg of state.messages) {
+        const roleColor = msg.role === "user" ? c.green : msg.role === "assistant" ? c.blue : c.magenta;
+        const preview = msg.content.length > 100 ? `${msg.content.slice(0, 100)}...` : msg.content;
+        console.log(`${roleColor}[${msg.role}]${c.reset} ${preview}`);
+      }
+      console.log("");
+      return true;
+    }
+  },
+  learn: {
+    description: "Learn about MOR ecosystem",
+    handler: async (_state, _client, _args, rl) => {
+      await showLearnMenu(rl);
+      return true;
+    }
+  },
+  menu: {
+    description: "Return to main menu",
+    handler: async () => {
+      return false;
+    }
+  },
+  exit: {
+    description: "Exit the CLI",
+    handler: async () => {
+      console.log(`
+${c.dim}Goodbye!${c.reset}
+`);
+      process.exit(0);
+    }
+  },
+  quit: {
+    description: "Exit the CLI",
+    handler: async () => {
+      console.log(`
+${c.dim}Goodbye!${c.reset}
+`);
+      process.exit(0);
+    }
+  },
+  toggle: {
+    description: "Toggle CLI options",
+    handler: async (state, _client, args) => {
+      const option = args.trim().toLowerCase();
+      if (!option) {
+        const on = `${c.green}ON${c.reset}`;
+        const off = `${c.dim}off${c.reset}`;
+        console.log(`
+${c.cyan}${c.bold}Toggle Options${c.reset}
+`);
+        console.log(`  ${c.green}reasoning${c.reset}  ${state.showReasoning ? on : off}  - Show AI thinking process`);
+        console.log(`  ${c.green}stream${c.reset}     ${state.streamMode ? on : off}  - Stream responses (vs batch)`);
+        console.log(`  ${c.green}verbose${c.reset}    ${state.verbose ? on : off}  - Verbose output`);
+        console.log(`
+${c.dim}Usage: /toggle <option>${c.reset}
+`);
+        return true;
+      }
+      switch (option) {
+        case "reasoning":
+        case "think":
+        case "thinking":
+          state.showReasoning = !state.showReasoning;
+          console.log(`
+${c.green}Reasoning display: ${state.showReasoning ? "ON" : "OFF"}${c.reset}
+`);
+          break;
+        case "stream":
+        case "streaming":
+          state.streamMode = !state.streamMode;
+          console.log(`
+${c.green}Streaming mode: ${state.streamMode ? "ON" : "OFF"}${c.reset}
+`);
+          break;
+        case "verbose":
+        case "v":
+          state.verbose = !state.verbose;
+          console.log(`
+${c.green}Verbose mode: ${state.verbose ? "ON" : "OFF"}${c.reset}
+`);
+          break;
+        default:
+          console.log(`
+${c.yellow}Unknown toggle: ${option}. Options: reasoning, stream, verbose${c.reset}
+`);
+      }
+      return true;
+    }
+  }
+};
+function estimateTokens(text) {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+function estimateMessagesTokens(messages) {
+  let total = 0;
+  for (const msg of messages) {
+    total += 4;
+    total += estimateTokens(msg.content);
+  }
+  return total;
+}
+async function compactConversation(client, state) {
+  if (state.messages.length < 4)
+    return state.messages;
+  const systemMsg = state.messages[0]?.role === "system" ? state.messages[0] : null;
+  const conversationMessages = systemMsg ? state.messages.slice(1) : state.messages;
+  const recentMessages = conversationMessages.slice(-4);
+  const oldMessages = conversationMessages.slice(0, -4);
+  if (oldMessages.length === 0)
+    return state.messages;
+  const oldConversation = oldMessages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join(`
+
+`);
+  const summaryResponse = await client.complete(`Summarize this conversation concisely, preserving key facts and context:
+
+${oldConversation}`, { model: state.model.id, maxTokens: 1000 });
+  const compactedMessages = [];
+  if (systemMsg)
+    compactedMessages.push(systemMsg);
+  compactedMessages.push({
+    role: "system",
+    content: `[Previous conversation summary: ${summaryResponse.trim()}]`
+  });
+  compactedMessages.push(...recentMessages);
+  return compactedMessages;
+}
+async function refreshWalletBalance(state) {
+  const mnemonic = process.env.MOR_MNEMONIC;
+  if (!mnemonic || !isValidMnemonic(mnemonic)) {
+    console.log(`
+${c.yellow}No wallet configured.${c.reset}`);
+    console.log(`${c.dim}Set MOR_MNEMONIC environment variable.${c.reset}
+`);
+    return;
+  }
+  const index2 = Number.parseInt(process.env.MOR_WALLET_INDEX || "0", 10);
+  const wallet = deriveWalletFromMnemonic(mnemonic, index2);
+  const routerUrl = process.env.MORPHEUS_ROUTER_URL || "http://localhost:9081";
+  const authHeader = `Basic ${Buffer.from("admin:admin").toString("base64")}`;
+  console.log(`
+${c.cyan}Fetching wallet info...${c.reset}`);
+  try {
+    const balances = await getBalances({ mnemonic, walletIndex: index2 });
+    state.wallet = { address: wallet.address, balances };
+    const shortAddr = `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`;
+    let totalStaked = 0n;
+    let sessions = [];
+    try {
+      const userSessResp = await fetch(`${routerUrl}/blockchain/sessions/user?user=${wallet.address}&limit=50`, { headers: { Authorization: authHeader } });
+      if (userSessResp.ok) {
+        const data = await userSessResp.json();
+        sessions = data.sessions || [];
+        const now = Date.now() / 1000;
+        for (const s of sessions) {
+          if (s.EndsAt > now && s.Stake) {
+            totalStaked += BigInt(s.Stake);
+          }
+        }
+      }
+    } catch {}
+    const stakedMor = Number(totalStaked) / 1000000000000000000;
+    const walletMor = Number(balances.mor) / 1000000000000000000;
+    const walletEth = Number(balances.eth) / 1000000000000000000;
+    const activeSessions = sessions.filter((s) => s.EndsAt > Date.now() / 1000);
+    const content = [
+      `${c.dim}Address:${c.reset}     ${shortAddr}`,
+      "",
+      `${c.green}ETH${c.reset}          ${walletEth.toFixed(4)}`,
+      `${c.green}MOR${c.reset}          ${walletMor.toFixed(2)} ${c.dim}(in wallet)${c.reset}`,
+      `${c.yellow}Staked${c.reset}       ${stakedMor.toFixed(2)} ${c.dim}(${activeSessions.length} sessions)${c.reset}`,
+      "",
+      `${c.dim}Allowance:${c.reset}   ${balances.isUnlimitedAllowance ? `${c.red}Unlimited (BAD!)${c.reset}` : `${balances.morAllowanceFormatted} MOR`}`
+    ];
+    console.log(`
+${box("Wallet (Base Mainnet)", content)}`);
+    if (activeSessions.length > 0) {
+      const modelMap = {};
+      try {
+        const modelsResp = await fetch(`${routerUrl}/blockchain/models`, {
+          headers: { Authorization: authHeader }
+        });
+        if (modelsResp.ok) {
+          const data = await modelsResp.json();
+          for (const m of data.models || []) {
+            modelMap[m.Id] = m.Name;
+          }
+        }
+      } catch {}
+      const sessionContent = activeSessions.map((s) => {
+        const remaining = Math.max(0, s.EndsAt - Date.now() / 1000);
+        const days = Math.floor(remaining / 86400);
+        const hours = Math.floor(remaining % 86400 / 3600);
+        const timeStr = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+        const stakeMor = (Number(s.Stake) / 1000000000000000000).toFixed(2);
+        const modelName = modelMap[s.ModelAgentId] || s.ModelAgentId?.slice(0, 10) || "unknown";
+        return `${c.green}${modelName.padEnd(20)}${c.reset} ${c.yellow}${stakeMor} MOR${c.reset}  ${c.dim}${timeStr} left${c.reset}`;
+      });
+      console.log(`
+${box("Active Stakes (unlimited usage per session)", sessionContent)}`);
+    } else {
+      console.log(`
+${c.dim}No active stakes. Start chatting to open a session.${c.reset}`);
+    }
+    console.log();
+  } catch (e) {
+    console.log(`
+${c.red}Error fetching balances: ${e instanceof Error ? e.message : String(e)}${c.reset}
+`);
+  }
+}
+async function showWalletMenu(rl, state) {
+  const question = (prompt) => new Promise((resolve) => rl.question(prompt, resolve));
+  const mnemonic = process.env.MOR_MNEMONIC;
+  if (!mnemonic || !isValidMnemonic(mnemonic)) {
+    console.log(`
+${c.yellow}No wallet configured.${c.reset}`);
+    console.log("Set MOR_MNEMONIC in your .env file.");
+    await question(`
+${c.dim}Press Enter to continue...${c.reset}`);
+    return;
+  }
+  const routerUrl = process.env.MORPHEUS_ROUTER_URL || "http://localhost:9081";
+  const authHeader = `Basic ${Buffer.from("admin:admin").toString("base64")}`;
+  while (true) {
+    console.log(`
+${c.cyan}${c.bold}Wallet Menu${c.reset}
+`);
+    console.log(`  ${c.dim}1.${c.reset} ${c.green}Status${c.reset}      - Balances + active sessions`);
+    console.log(`  ${c.dim}2.${c.reset} ${c.green}Providers${c.reset}   - View network providers`);
+    console.log(`  ${c.dim}3.${c.reset} ${c.green}Models${c.reset}      - View available models`);
+    console.log(`  ${c.dim}4.${c.reset} ${c.green}Approve${c.reset}     - Approve 10k MOR for staking`);
+    console.log("");
+    console.log(`  ${c.dim}0.${c.reset} Back`);
+    console.log();
+    const choice = await question(`${c.cyan}Select option${c.reset}: `);
+    const num2 = Number.parseInt(choice.trim(), 10);
+    switch (num2) {
+      case 0:
+        return;
+      case 1:
+        await refreshWalletBalance(state);
+        break;
+      case 2:
+        try {
+          const resp = await fetch(`${routerUrl}/blockchain/providers`, {
+            headers: { Authorization: authHeader }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            const providerContent = data.providers.map((p) => {
+              const stake = (Number(p.Stake) / 1000000000000000000).toFixed(0);
+              return `${c.dim}${p.Address.slice(0, 10)}...${c.reset}  ${c.green}${stake} MOR${c.reset}  ${c.dim}${p.Endpoint}${c.reset}`;
+            });
+            console.log(`
+${box(`Providers (${data.providers.length})`, providerContent)}`);
+          }
+        } catch {
+          console.log(`
+${c.red}Could not fetch providers${c.reset}`);
+        }
+        break;
+      case 3:
+        try {
+          const resp = await fetch(`${routerUrl}/blockchain/models`, {
+            headers: { Authorization: authHeader }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            const llmModels = data.models.filter((m) => m.ModelType === "LLM");
+            const otherModels = data.models.filter((m) => m.ModelType !== "LLM");
+            const modelContent = llmModels.slice(0, 15).map((m) => {
+              const tags = m.Tags?.slice(0, 3).join(", ") || "";
+              return `${c.green}${m.Name.padEnd(30)}${c.reset} ${c.dim}${tags}${c.reset}`;
+            });
+            if (llmModels.length > 15) {
+              modelContent.push(`${c.dim}... and ${llmModels.length - 15} more LLM models${c.reset}`);
+            }
+            console.log(`
+${box(`LLM Models (${llmModels.length})`, modelContent)}`);
+            if (otherModels.length > 0) {
+              const otherContent = otherModels.map((m) => {
+                return `${c.yellow}${m.Name.padEnd(30)}${c.reset} ${c.dim}${m.ModelType}${c.reset}`;
+              });
+              console.log(`
+${box(`Other Models (${otherModels.length})`, otherContent)}`);
+            }
+          }
+        } catch {
+          console.log(`
+${c.red}Could not fetch models${c.reset}`);
+        }
+        break;
+      case 4:
+        console.log(`
+${c.cyan}Approving MOR for Diamond contract via router...${c.reset}`);
+        try {
+          const diamond = "0x6aBE1d282f72B474E54527D93b979A4f64d3030a";
+          const amount = "10000000000000000000000";
+          const response = await fetch(`${routerUrl}/blockchain/approve?spender=${diamond}&amount=${amount}`, { method: "POST", headers: { Authorization: authHeader } });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${response.status}`);
+          }
+          const result = await response.json();
+          console.log(`
+${c.green}Approval successful!${c.reset}`);
+          console.log(`${c.dim}Tx:${c.reset} ${result.tx}`);
+          console.log(`${c.dim}Amount:${c.reset} 10,000 MOR`);
+        } catch (e) {
+          console.log(`
+${c.red}Approval failed: ${e instanceof Error ? e.message : String(e)}${c.reset}`);
+        }
+        break;
+      default:
+        console.log(`${c.yellow}Invalid option.${c.reset}`);
+    }
+  }
+}
+async function printMetrics(state) {
+  const usage = (state.tokenEstimate / state.model.contextWindow * 100).toFixed(1);
+  const usageBar = createProgressBar(state.tokenEstimate, state.model.contextWindow, 20);
+  const content = [
+    `${c.dim}Model:${c.reset}       ${c.green}${state.model.id}${c.reset}`,
+    `${c.dim}Messages:${c.reset}    ${state.messages.length}`,
+    `${c.dim}Tokens:${c.reset}      ${formatTokens(state.tokenEstimate)} / ${formatTokens(state.model.contextWindow)}`,
+    `${c.dim}Usage:${c.reset}       ${usageBar} ${usage}%`,
+    `${c.dim}Compactions:${c.reset} ${state.compactionCount}`
+  ];
+  if (state.wallet?.balances) {
+    content.push("");
+    content.push(`${c.dim}Wallet:${c.reset}      ${state.wallet.address.slice(0, 10)}...`);
+    content.push(`${c.dim}MOR:${c.reset}         ${state.wallet.balances.morFormatted}`);
+    content.push(`${c.dim}ETH:${c.reset}         ${state.wallet.balances.ethFormatted}`);
+  }
+  console.log(`
+${box("Session Metrics", content)}
+`);
+}
+function createProgressBar(current, max, width) {
+  const ratio = Math.min(current / max, 1);
+  const filled = Math.round(ratio * width);
+  const empty = width - filled;
+  const color = ratio > 0.7 ? c.yellow : ratio > 0.9 ? c.red : c.green;
+  return `${color}${"█".repeat(filled)}${c.dim}${"░".repeat(empty)}${c.reset}`;
+}
+async function selectModel(client, rl, currentModel) {
+  const question = (prompt) => new Promise((resolve) => rl.question(prompt, resolve));
+  console.log(`
+${c.cyan}Fetching models and sessions...${c.reset}`);
+  const routerUrl = process.env.MORPHEUS_ROUTER_URL || "http://localhost:9081";
+  const authHeader = `Basic ${Buffer.from("admin:admin").toString("base64")}`;
+  let allModels = [];
+  try {
+    const resp = await fetch(`${routerUrl}/blockchain/models`, {
+      headers: { Authorization: authHeader }
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const llmModels = (data.models || []).filter((m) => m.ModelType === "LLM");
+      allModels = llmModels.map((m) => ({
+        name: m.Name || m.id || "unknown",
+        id: m.Id || m.id || "",
+        tags: m.Tags?.slice(0, 2).join(", ") || "",
+        pricePerSecond: m.PricePerSecond || 0
+      }));
+    }
+  } catch {}
+  if (allModels.length === 0) {
+    try {
+      const response = await client.listModels();
+      allModels = response.data.filter((m) => m.modelType === "LLM" || !m.modelType && !m.id?.includes("embedding")).map((m) => ({
+        name: m.id || m.Name || "unknown",
+        id: "",
+        tags: MODEL_CONFIGS[m.id || ""]?.description || "",
+        pricePerSecond: 0
+      }));
+    } catch {
+      allModels = Object.keys(MODEL_CONFIGS).map((name) => ({
+        name,
+        id: "",
+        tags: MODEL_CONFIGS[name]?.description || "",
+        pricePerSecond: 0
+      }));
+    }
+  }
+  const activeModelIds = new Set;
+  const mnemonic = process.env.MOR_MNEMONIC;
+  if (mnemonic && isValidMnemonic(mnemonic)) {
+    try {
+      const index2 = Number.parseInt(process.env.MOR_WALLET_INDEX || "0", 10);
+      const wallet = deriveWalletFromMnemonic(mnemonic, index2);
+      const sessResp = await fetch(`${routerUrl}/blockchain/sessions/user?user=${wallet.address}&limit=50`, { headers: { Authorization: authHeader } });
+      if (sessResp.ok) {
+        const data = await sessResp.json();
+        const now = Date.now() / 1000;
+        for (const s of data.sessions || []) {
+          if (s.EndsAt > now) {
+            activeModelIds.add(s.ModelAgentId);
+          }
+        }
+      }
+    } catch {}
+  }
+  console.log(`
+${c.cyan}${c.bold}Available Models (${allModels.length})${c.reset}`);
+  console.log(`${c.dim}● = active session (staked)${c.reset}
+`);
+  for (let i = 0;i < allModels.length; i++) {
+    const m = allModels[i];
+    const num3 = (i + 1).toString().padStart(2);
+    const hasStake2 = activeModelIds.has(m.id);
+    const stakeMarker = hasStake2 ? `${c.green}●${c.reset}` : `${c.dim}○${c.reset}`;
+    const currentMarker = m.name === currentModel ? ` ${c.yellow}← current${c.reset}` : "";
+    console.log(`  ${c.dim}${num3}.${c.reset} ${stakeMarker} ${c.green}${m.name.padEnd(24)}${c.reset} ${c.dim}${m.tags}${c.reset}${currentMarker}`);
+  }
+  const choice = await question(`
+${c.cyan}Select model${c.reset} (number or name): `);
+  if (!choice.trim())
+    return null;
+  let selected;
+  const num2 = Number.parseInt(choice, 10);
+  if (!Number.isNaN(num2) && num2 >= 1 && num2 <= allModels.length) {
+    selected = allModels[num2 - 1];
+  } else {
+    selected = allModels.find((m) => m.name.toLowerCase() === choice.trim().toLowerCase());
+  }
+  if (!selected) {
+    console.log(`${c.yellow}Invalid selection.${c.reset}`);
+    return null;
+  }
+  const hasStake = activeModelIds.has(selected.id);
+  if (!hasStake && selected.id) {
+    const sessionDuration = 604800;
+    const stakeMor = selected.pricePerSecond > 0 ? (selected.pricePerSecond * sessionDuration / 1000000000000000000).toFixed(2) : "~2";
+    console.log(`
+${c.yellow}No active session for ${selected.name}${c.reset}`);
+    console.log(`${c.dim}Opening a new session will stake ${c.green}~${stakeMor} MOR${c.reset} ${c.dim}for 7 days.${c.reset}`);
+    console.log(`${c.dim}(MOR is returned when session expires)${c.reset}
+`);
+    const confirm = await question(`${c.cyan}Open session and stake?${c.reset} (y/N): `);
+    if (confirm.toLowerCase() !== "y" && confirm.toLowerCase() !== "yes") {
+      console.log(`${c.dim}Cancelled.${c.reset}`);
+      return null;
+    }
+  }
+  return selected.name;
+}
+async function showLearnMenu(rl) {
+  const question = (prompt) => new Promise((resolve) => rl.question(prompt, resolve));
+  while (true) {
+    console.log(`
+${c.cyan}${c.bold}Learn About MOR${c.reset}
+`);
+    console.log(`  ${c.dim}1.${c.reset} ${c.green}Overview${c.reset}      - What is MOR DIEM?`);
+    console.log(`  ${c.dim}2.${c.reset} ${c.green}Staking${c.reset}       - How MOR staking works`);
+    console.log(`  ${c.dim}3.${c.reset} ${c.green}DIEM${c.reset}          - The decentralized inference model`);
+    console.log(`  ${c.dim}4.${c.reset} ${c.green}Epochs${c.reset}        - Network coordination`);
+    console.log(`  ${c.dim}5.${c.reset} ${c.green}Wallet${c.reset}        - Setup & security`);
+    console.log(`  ${c.dim}6.${c.reset} ${c.green}Models${c.reset}        - Available AI models`);
+    console.log("");
+    console.log(`  ${c.dim}0.${c.reset} Back to chat`);
+    const choice = await question(`
+${c.cyan}Select topic${c.reset}: `);
+    const num2 = Number.parseInt(choice, 10);
+    switch (num2) {
+      case 0:
+        return;
+      case 1:
+        console.log(LEARN_CONTENT.overview);
+        break;
+      case 2:
+        console.log(LEARN_CONTENT.staking);
+        break;
+      case 3:
+        console.log(LEARN_CONTENT.diem);
+        break;
+      case 4:
+        console.log(LEARN_CONTENT.epochs);
+        break;
+      case 5:
+        console.log(LEARN_CONTENT.wallet);
+        break;
+      case 6:
+        console.log(LEARN_CONTENT.models);
+        break;
+      default:
+        console.log(`${c.yellow}Invalid selection.${c.reset}`);
+    }
+    await question(`
+${c.dim}Press Enter to continue...${c.reset}`);
+  }
+}
+async function streamResponse(client, state) {
+  let fullContent = "";
+  let isFirstContent = true;
+  let isFirstReasoning = true;
+  let receivedFirstChunk = false;
+  const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  let spinnerIdx = 0;
+  const startTime = Date.now();
+  const updateSpinner = () => {
+    if (receivedFirstChunk)
+      return;
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const frame = spinnerFrames[spinnerIdx % spinnerFrames.length];
+    process.stdout.write(`\r${c.cyan}${frame}${c.reset} ${c.dim}thinking...${c.reset} ${c.gray}${elapsed}s${c.reset}  `);
+    spinnerIdx++;
+  };
+  updateSpinner();
+  const spinnerInterval = setInterval(updateSpinner, 80);
+  try {
+    const stream = client.createChatCompletionStream({
+      model: state.model.id,
+      messages: state.messages,
+      max_tokens: 4096
+    });
+    let reasoningContent = "";
+    for await (const chunk of stream) {
+      if (!receivedFirstChunk) {
+        receivedFirstChunk = true;
+        clearInterval(spinnerInterval);
+        process.stdout.write(`\r${" ".repeat(40)}\r`);
+        process.stdout.write(`
+${c.blue}${state.model.id}${c.reset}: `);
+      }
+      const delta = chunk.choices[0]?.delta;
+      if (delta?.reasoning_content) {
+        reasoningContent += delta.reasoning_content;
+        if (state.showReasoning) {
+          if (isFirstReasoning) {
+            process.stdout.write(`
+${c.dim}${c.italic}[thinking] `);
+            isFirstReasoning = false;
+          }
+          process.stdout.write(delta.reasoning_content);
+        }
+      }
+      if (delta?.content) {
+        if (state.showReasoning && !isFirstReasoning && isFirstContent) {
+          process.stdout.write(`${c.reset}
+
+${c.blue}${state.model.id}${c.reset}: `);
+        }
+        isFirstContent = false;
+        process.stdout.write(delta.content);
+        fullContent += delta.content;
+      }
+    }
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`
+`);
+    if (state.verbose) {
+      const responseTokens = Math.ceil(fullContent.length / 4);
+      const reasoningTokens = Math.ceil(reasoningContent.length / 4);
+      console.log(`${c.dim}[${elapsed}s | ~${responseTokens} tokens${reasoningTokens > 0 ? ` | ~${reasoningTokens} reasoning` : ""}]${c.reset}
+`);
+    }
+    return fullContent;
+  } catch (error) {
+    clearInterval(spinnerInterval);
+    if (!receivedFirstChunk) {
+      process.stdout.write(`\r${" ".repeat(40)}\r`);
+    }
+    console.log("");
+    throw error;
+  }
+}
+async function showMainMenu(rl) {
+  const question = (prompt) => new Promise((resolve) => rl.question(prompt, resolve));
+  console.clear();
+  const pad4 = (s, width = 56) => {
+    const visible = s.replace(/\x1b\[[0-9;]*m/g, "").length;
+    return s + " ".repeat(Math.max(0, width - visible));
+  };
+  const line = (content) => `${c.cyan}${c.bold}║${c.reset}${pad4(content)}${c.cyan}${c.bold}║${c.reset}`;
+  console.log(`
+${c.cyan}${c.bold}╔════════════════════════════════════════════════════════╗${c.reset}
+${line("")}
+${line(`   ${c.green}${c.bold}MOR DIEM${c.reset}`)}
+${line(`   ${c.dim}Morpheus Decentralized Inference SDK${c.reset}`)}
+${line("")}
+${c.cyan}${c.bold}╠════════════════════════════════════════════════════════╣${c.reset}
+${line("")}
+${line(`   ${c.dim}1.${c.reset} ${c.green}Start Chat${c.reset}       Begin AI conversation`)}
+${line(`   ${c.dim}2.${c.reset} ${c.green}Wallet${c.reset}           View balance & approve MOR`)}
+${line(`   ${c.dim}3.${c.reset} ${c.green}Learn${c.reset}            How MOR staking works`)}
+${line(`   ${c.dim}4.${c.reset} ${c.green}Models${c.reset}           Browse available models`)}
+${line(`   ${c.dim}5.${c.reset} ${c.green}Settings${c.reset}         Configure CLI options`)}
+${line("")}
+${line(`   ${c.dim}0.${c.reset} Exit`)}
+${line("")}
+${c.cyan}${c.bold}╚════════════════════════════════════════════════════════╝${c.reset}
+`);
+  return await question(`${c.cyan}Select option${c.reset}: `);
+}
+async function startChatSession(client, rl, state) {
+  const question = (prompt) => new Promise((resolve) => rl.question(prompt, resolve));
+  if (!state.model.id) {
+    const selectedModel = await selectModel(client, rl);
+    if (!selectedModel) {
+      console.log(`${c.yellow}No model selected.${c.reset}`);
+      return true;
+    }
+    const config = MODEL_CONFIGS[selectedModel] || { contextWindow: DEFAULT_CONTEXT_WINDOW };
+    state.model = {
+      id: selectedModel,
+      contextWindow: config.contextWindow,
+      compactAt: Math.floor(config.contextWindow * COMPACT_THRESHOLD_RATIO)
+    };
+  }
+  console.log(`
+${c.green}Using ${state.model.id}${c.reset} ${c.dim}(${formatTokens(state.model.contextWindow)} context)${c.reset}`);
+  console.log(`${c.dim}Type /help for commands, /exit to quit, Ctrl+C to abort${c.reset}
+`);
+  const showPromptBar = () => {
+    const contextUsed = state.tokenEstimate;
+    const contextTotal = state.model.contextWindow;
+    const contextPct = Math.round(contextUsed / contextTotal * 100);
+    const contextLeft = contextTotal - contextUsed;
+    const modelPart = `${c.cyan}${state.model.id}${c.reset}`;
+    const contextPart = contextPct > 60 ? `${c.yellow}${formatTokens(contextLeft)} left${c.reset}` : `${c.dim}${formatTokens(contextLeft)} left${c.reset}`;
+    const compactPart = state.compactionCount > 0 ? ` ${c.dim}(${state.compactionCount}x compacted)${c.reset}` : "";
+    const toggles = [];
+    if (!state.showReasoning)
+      toggles.push(`${c.yellow}no-think${c.reset}`);
+    if (state.verbose)
+      toggles.push(`${c.green}verbose${c.reset}`);
+    const togglePart = toggles.length > 0 ? ` ${c.dim}[${c.reset}${toggles.join(" ")}${c.dim}]${c.reset}` : "";
+    const cmdHint = `${c.dim}/toggle /help${c.reset}`;
+    console.log(`${c.dim}─${c.reset} ${modelPart} ${c.dim}│${c.reset} ${contextPart}${compactPart}${togglePart} ${c.dim}│${c.reset} ${cmdHint}`);
+  };
+  while (true) {
+    showPromptBar();
+    const input = await question(`${c.green}You:${c.reset} `);
+    const trimmed = input.trim();
+    if (!trimmed)
+      continue;
+    if (trimmed.startsWith("/")) {
+      const spaceIdx = trimmed.indexOf(" ");
+      const cmdName = spaceIdx > 0 ? trimmed.slice(1, spaceIdx).toLowerCase() : trimmed.slice(1).toLowerCase();
+      const cmdArgs = spaceIdx > 0 ? trimmed.slice(spaceIdx + 1) : "";
+      const cmd = SLASH_COMMANDS[cmdName];
+      if (cmd) {
+        const shouldContinue = await cmd.handler(state, client, cmdArgs, rl);
+        if (!shouldContinue) {
+          return true;
+        }
+        continue;
+      }
+      console.log(`${c.yellow}Unknown command: /${cmdName}. Type /help for commands.${c.reset}
+`);
+      continue;
+    }
+    state.messages.push({ role: "user", content: trimmed });
+    state.tokenEstimate = estimateMessagesTokens(state.messages);
+    if (state.tokenEstimate > state.model.compactAt) {
+      console.log(`
+${c.cyan}Auto-compacting conversation...${c.reset}`);
+      state.messages = await compactConversation(client, state);
+      state.tokenEstimate = estimateMessagesTokens(state.messages);
+      state.compactionCount++;
+    }
+    try {
+      const response = await streamResponse(client, state);
+      state.messages.push({ role: "assistant", content: response });
+      state.tokenEstimate = estimateMessagesTokens(state.messages);
+    } catch (e) {
+      console.error(`
+${c.red}Error: ${e instanceof Error ? e.message : String(e)}${c.reset}
+`);
+      state.messages.pop();
+      state.tokenEstimate = estimateMessagesTokens(state.messages);
+    }
+  }
+}
+async function startInteractiveChat(config) {
+  const client = new MorpheusClient({
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
+    timeout: 300000
+  });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  const question = (prompt) => new Promise((resolve) => rl.question(prompt, resolve));
+  const state = {
+    model: { id: "", contextWindow: DEFAULT_CONTEXT_WINDOW, compactAt: 0 },
+    messages: [],
+    tokenEstimate: 0,
+    compactionCount: 0,
+    systemPrompt: null,
+    showReasoning: true,
+    streamMode: true,
+    verbose: false
+  };
+  const mnemonic = process.env.MOR_MNEMONIC;
+  if (mnemonic && isValidMnemonic(mnemonic)) {
+    const index2 = Number.parseInt(process.env.MOR_WALLET_INDEX || "0", 10);
+    const wallet = deriveWalletFromMnemonic(mnemonic, index2);
+    state.wallet = { address: wallet.address };
+  }
+  while (true) {
+    const choice = await showMainMenu(rl);
+    const num2 = Number.parseInt(choice, 10);
+    switch (num2) {
+      case 0:
+        console.log(`
+${c.dim}Goodbye!${c.reset}
+`);
+        rl.close();
+        return;
+      case 1:
+        await startChatSession(client, rl, state);
+        break;
+      case 2:
+        await showWalletMenu(rl, state);
+        break;
+      case 3:
+        await showLearnMenu(rl);
+        break;
+      case 4: {
+        const selectedModel = await selectModel(client, rl, state.model.id);
+        if (selectedModel) {
+          const config2 = MODEL_CONFIGS[selectedModel] || { contextWindow: DEFAULT_CONTEXT_WINDOW };
+          state.model = {
+            id: selectedModel,
+            contextWindow: config2.contextWindow,
+            compactAt: Math.floor(config2.contextWindow * COMPACT_THRESHOLD_RATIO)
+          };
+          console.log(`
+${c.green}Model set to ${selectedModel}${c.reset}`);
+        }
+        await question(`
+${c.dim}Press Enter to continue...${c.reset}`);
+        break;
+      }
+      case 5:
+        console.log(`
+${c.cyan}${c.bold}Settings${c.reset}
+`);
+        console.log(`${c.dim}Environment:${c.reset}`);
+        console.log(`  MOR_MNEMONIC:     ${mnemonic ? `${c.green}Set${c.reset}` : `${c.yellow}Not set${c.reset}`}`);
+        console.log(`  MOR_WALLET_INDEX: ${process.env.MOR_WALLET_INDEX || "0"}`);
+        console.log(`  MOR_RPC_URL:      ${process.env.MOR_RPC_URL || "https://arb1.arbitrum.io/rpc"}`);
+        console.log(`
+${c.dim}Proxy:${c.reset}`);
+        console.log(`  Base URL: ${config.baseUrl || "http://127.0.0.1:8083"}`);
+        console.log(`  Mode:     ${client.mode}`);
+        await question(`
+${c.dim}Press Enter to continue...${c.reset}`);
+        break;
+      default:
+        console.log(`${c.yellow}Invalid option.${c.reset}`);
+        await question(`
+${c.dim}Press Enter to continue...${c.reset}`);
+    }
+  }
+}
+
+// src/cli/mor-diem.ts
+var CONFIG_DIR = path.join(os.homedir(), ".mor-diem");
+var CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
+    }
+  } catch {}
+  return {};
+}
+function saveConfig(config) {
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 448 });
+  }
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 384 });
+}
+var c2 = {
+  reset: "\x1B[0m",
+  dim: "\x1B[2m",
+  bold: "\x1B[1m",
+  cyan: "\x1B[36m",
+  green: "\x1B[32m",
+  yellow: "\x1B[33m",
+  magenta: "\x1B[35m",
+  gray: "\x1B[90m",
+  red: "\x1B[31m"
+};
+async function prompt(question) {
+  const rl = readline2.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+async function runOnboarding() {
+  console.clear();
+  console.log(`
+${c2.cyan}\u256D\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256E${c2.reset}
+${c2.cyan}\u2502${c2.reset}  ${c2.bold}Welcome to MOR DIEM${c2.reset}                                          ${c2.cyan}\u2502${c2.reset}
+${c2.cyan}\u2502${c2.reset}  ${c2.dim}Decentralized AI inference on Morpheus${c2.reset}                       ${c2.cyan}\u2502${c2.reset}
+${c2.cyan}\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256F${c2.reset}
+
+No configuration found. Let's get you set up.
+
+${c2.yellow}How would you like to access Morpheus?${c2.reset}
+
+  ${c2.green}[1]${c2.reset} Generate new wallet ${c2.dim}(true decentralization)${c2.reset}
+      \u2192 Creates HD wallet, you deposit MOR tokens
+      \u2192 Requires: ~$3 worth of ETH + MOR on Base
+
+  ${c2.green}[2]${c2.reset} Import existing wallet ${c2.dim}(12 or 24 word seed)${c2.reset}
+      \u2192 Use your existing crypto wallet
+      \u2192 For users who already have MOR tokens
+
+  ${c2.green}[3]${c2.reset} Use hosted gateway ${c2.dim}(easiest)${c2.reset}
+      \u2192 Get API key from api.mor.org
+      \u2192 No wallet or tokens needed
+      \u2192 Less decentralized, but works immediately
+
+  ${c2.green}[4]${c2.reset} Learn about MOR DIEM first
+
+  ${c2.green}[5]${c2.reset} Skip for now ${c2.dim}(exit)${c2.reset}
+`);
+  const choice = await prompt(`${c2.cyan}Enter choice [1-5]:${c2.reset} `);
+  switch (choice) {
+    case "1":
+      return await onboardGenerateWallet();
+    case "2":
+      return await onboardImportWallet();
+    case "3":
+      return await onboardGateway();
+    case "4":
+      await showLearnContent();
+      return await runOnboarding();
+    case "5":
+      console.log(`
+${c2.dim}Exiting. Run 'mor-diem' again when ready.${c2.reset}
+`);
+      return null;
+    default:
+      console.log(`
+${c2.red}Invalid choice. Please enter 1-5.${c2.reset}`);
+      return await runOnboarding();
+  }
+}
+async function onboardGenerateWallet() {
+  console.log(`
+${c2.cyan}Generating new wallet...${c2.reset}
+`);
+  const mnemonic = generateNewMnemonic(128);
+  const wallet = deriveWallet(mnemonic, 0);
+  const words = mnemonic.split(" ");
+  console.log(`${c2.yellow}\u256D\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256E${c2.reset}`);
+  console.log(`${c2.yellow}\u2502${c2.reset}  ${c2.bold}\u26A0\uFE0F  SAVE THIS SEED PHRASE SECURELY${c2.reset}                            ${c2.yellow}\u2502${c2.reset}`);
+  console.log(`${c2.yellow}\u2502${c2.reset}  ${c2.dim}Anyone with these words can access your funds${c2.reset}                  ${c2.yellow}\u2502${c2.reset}`);
+  console.log(`${c2.yellow}\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524${c2.reset}`);
+  for (let i = 0;i < words.length; i += 4) {
+    const line = words.slice(i, i + 4).map((w, j) => `${c2.green}${(i + j + 1).toString().padStart(2, " ")}.${c2.reset} ${w.padEnd(10)}`).join(" ");
+    console.log(`${c2.yellow}\u2502${c2.reset}  ${line}  ${c2.yellow}\u2502${c2.reset}`);
+  }
+  console.log(`${c2.yellow}\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524${c2.reset}`);
+  console.log(`${c2.yellow}\u2502${c2.reset}  ${c2.cyan}Address:${c2.reset} ${wallet.address}  ${c2.yellow}\u2502${c2.reset}`);
+  console.log(`${c2.yellow}\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256F${c2.reset}`);
+  console.log(`
+${c2.yellow}To start chatting, you'll need to fund this wallet:${c2.reset}
+
+  ${c2.green}1.${c2.reset} Send ~0.01 ETH to the address above ${c2.dim}(for gas on Base)${c2.reset}
+     Bridge from Ethereum: ${c2.cyan}https://bridge.base.org${c2.reset}
+
+  ${c2.green}2.${c2.reset} Get ~5 MOR tokens ${c2.dim}(minimum deposit for sessions)${c2.reset}
+     Swap ETH\u2192MOR: ${c2.cyan}https://app.uniswap.org${c2.reset} ${c2.dim}(select Base network)${c2.reset}
+     Current price: ~$0.57/MOR \u2192 ~$3 total
+
+  ${c2.green}3.${c2.reset} Your MOR is a ${c2.bold}refundable deposit${c2.reset}, not a payment
+     Tokens lock for 7 days per model, then ${c2.green}return to you${c2.reset}.
+`);
+  const save = await prompt(`${c2.cyan}Save configuration to ~/.mor-diem/config? [Y/n]:${c2.reset} `);
+  if (save.toLowerCase() !== "n") {
+    const config = {
+      mnemonic,
+      walletIndex: 0,
+      mode: "p2p"
+    };
+    saveConfig(config);
+    console.log(`
+${c2.green}\u2713 Configuration saved to ~/.mor-diem/config${c2.reset}`);
+    console.log(`${c2.dim}  (File is readable only by you)${c2.reset}
+`);
+    return config;
+  }
+  process.env.MOR_MNEMONIC = mnemonic;
+  console.log(`
+${c2.yellow}Configuration not saved. Set this for future sessions:${c2.reset}`);
+  console.log(`${c2.dim}export MOR_MNEMONIC="${mnemonic}"${c2.reset}
+`);
+  return { mnemonic, walletIndex: 0, mode: "p2p" };
+}
+async function onboardImportWallet() {
+  console.log(`
+${c2.cyan}Import existing wallet${c2.reset}
+`);
+  console.log(`${c2.dim}Enter your 12 or 24 word seed phrase (words separated by spaces):${c2.reset}
+`);
+  const mnemonic = await prompt(`${c2.cyan}Seed phrase:${c2.reset} `);
+  if (!isValidMnemonic(mnemonic)) {
+    console.log(`
+${c2.red}Invalid seed phrase. Please check and try again.${c2.reset}
+`);
+    return await runOnboarding();
+  }
+  const wallet = deriveWallet(mnemonic, 0);
+  console.log(`
+${c2.green}\u2713 Valid seed phrase${c2.reset}`);
+  console.log(`  ${c2.cyan}Address:${c2.reset} ${wallet.address}
+`);
+  const save = await prompt(`${c2.cyan}Save configuration to ~/.mor-diem/config? [Y/n]:${c2.reset} `);
+  if (save.toLowerCase() !== "n") {
+    const config = {
+      mnemonic,
+      walletIndex: 0,
+      mode: "p2p"
+    };
+    saveConfig(config);
+    console.log(`
+${c2.green}\u2713 Configuration saved${c2.reset}
+`);
+    return config;
+  }
+  process.env.MOR_MNEMONIC = mnemonic;
+  return { mnemonic, walletIndex: 0, mode: "p2p" };
+}
+async function onboardGateway() {
+  console.log(`
+${c2.cyan}Gateway Mode${c2.reset}
+
+Gateway mode uses the hosted Morpheus API. You'll need an API key
+from ${c2.cyan}https://api.mor.org${c2.reset} (or another compatible gateway).
+
+${c2.dim}This is the easiest way to get started - no wallet, no tokens,
+no blockchain transactions. Just an API key like OpenAI.${c2.reset}
+`);
+  const apiKey = await prompt(`${c2.cyan}Enter your API key (or press Enter to skip):${c2.reset} `);
+  if (!apiKey) {
+    console.log(`
+${c2.yellow}No API key provided. Returning to menu...${c2.reset}
+`);
+    return await runOnboarding();
+  }
+  const save = await prompt(`${c2.cyan}Save configuration to ~/.mor-diem/config? [Y/n]:${c2.reset} `);
+  if (save.toLowerCase() !== "n") {
+    const config = {
+      apiKey,
+      mode: "gateway"
+    };
+    saveConfig(config);
+    console.log(`
+${c2.green}\u2713 Configuration saved${c2.reset}
+`);
+    return config;
+  }
+  process.env.MOR_API_KEY = apiKey;
+  return { apiKey, mode: "gateway" };
+}
+async function showLearnContent() {
+  console.clear();
+  console.log(`
+${c2.cyan}${c2.bold}What is MOR DIEM?${c2.reset}
+
+MOR DIEM provides access to decentralized AI inference through
+the Morpheus network.
+
+${c2.yellow}How it differs from OpenAI/Anthropic:${c2.reset}
+
+  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+  \u2502  ${c2.bold}Traditional API${c2.reset}                                           \u2502
+  \u2502  Pay $$ per token \u2192 Money is ${c2.red}gone${c2.reset}                          \u2502
+  \u2502                                                             \u2502
+  \u2502  ${c2.bold}MOR DIEM${c2.reset}                                                  \u2502
+  \u2502  Deposit MOR tokens \u2192 Use unlimited \u2192 MOR ${c2.green}returned${c2.reset}        \u2502
+  \u2502  (This is a refundable deposit, not a payment)              \u2502
+  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+
+${c2.yellow}The Economics:${c2.reset}
+
+  \u2022 Deposit ~2 MOR per model (~$1.14 at current prices)
+  \u2022 Get unlimited inference for 7 days
+  \u2022 After 7 days, your MOR is returned automatically
+  \u2022 You ${c2.bold}own${c2.reset} your tokens the whole time
+
+${c2.yellow}What you need to get started:${c2.reset}
+
+  \u2022 ~0.01 ETH on Base chain (for gas fees, ~$0.02)
+  \u2022 ~5 MOR tokens minimum (for session deposits, ~$3)
+  \u2022 Or: just an API key if using gateway mode
+
+${c2.dim}Press Enter to continue...${c2.reset}
+`);
+  await prompt("");
+}
+var fileConfig = loadConfig();
+var config = {
+  apiKey: process.env.MOR_API_KEY || fileConfig.apiKey,
+  mnemonic: process.env.MOR_MNEMONIC || fileConfig.mnemonic,
+  walletIndex: Number.parseInt(process.env.MOR_WALLET_INDEX || String(fileConfig.walletIndex ?? 0), 10),
+  rpcUrl: process.env.MOR_RPC_URL,
+  baseUrl: process.env.MOR_BASE_URL,
+  mode: fileConfig.mode
+};
+function isConfigured() {
+  return !!(config.mnemonic || config.apiKey);
+}
+function printHelp() {
+  console.log(`
+${c2.cyan}\u267E\uFE0F  MOR DIEM CLI${c2.reset} - Morpheus Decentralized Inference
+
+${c2.yellow}GETTING STARTED:${c2.reset}
+
+  ${c2.green}setup${c2.reset}                       Guided first-time setup
+  ${c2.green}chat${c2.reset}                        Interactive chat (runs setup if needed)
+
+${c2.yellow}WALLET COMMANDS:${c2.reset}
+
+  wallet generate           Generate new 12-word seed phrase
+  wallet derive [index]     Show address for wallet index (default: 0)
+  wallet balance            Show MOR, ETH, USDC balances
+  wallet approve [amount]   Approve MOR for Diamond contract
+
+${c2.yellow}INFERENCE COMMANDS:${c2.reset}
+
+  chat                      Interactive chat mode with memory
+  models                    List available models
+  complete <message>        Quick inference test
+  health                    Check API health
+
+${c2.yellow}CONFIGURATION:${c2.reset}
+
+  Config file: ${c2.dim}~/.mor-diem/config${c2.reset}
+
+  Environment variables (override config file):
+    MOR_API_KEY             API key for gateway mode
+    MOR_MNEMONIC            BIP39 seed phrase (12 or 24 words)
+    MOR_WALLET_INDEX        Wallet derivation index (default: 0)
+    MOR_RPC_URL             Custom RPC for Base
+    MOR_BASE_URL            Custom API base URL
+
+${c2.yellow}EXAMPLES:${c2.reset}
+
+  ${c2.dim}# First time? Just run:${c2.reset}
+  mor-diem
+
+  ${c2.dim}# Generate a new wallet${c2.reset}
+  mor-diem wallet generate
+
+  ${c2.dim}# Interactive chat${c2.reset}
+  mor-diem chat
+
+  ${c2.dim}# Quick inference test${c2.reset}
+  mor-diem complete "Hello, world!"
+`);
+}
+function requireMnemonic() {
+  if (!config.mnemonic) {
+    console.error("\u274C MOR_MNEMONIC environment variable is required");
+    console.error('   Set it with: export MOR_MNEMONIC="word1 word2 ..."');
+    process.exit(1);
+  }
+  if (!isValidMnemonic(config.mnemonic)) {
+    console.error("\u274C Invalid mnemonic in MOR_MNEMONIC");
+    process.exit(1);
+  }
+  return config.mnemonic;
+}
+function createSDK() {
+  return new MorDiemSDK({
+    mnemonic: config.mnemonic,
+    walletIndex: config.walletIndex,
+    rpcUrl: config.rpcUrl,
+    proxyUrl: config.baseUrl
+  });
+}
+async function cmdWalletGenerate() {
+  console.log(`
+\uD83D\uDD10 Generating new BIP39 mnemonic...
+`);
+  const mnemonic = generateNewMnemonic(128);
+  const wallet = deriveWallet(mnemonic, 0);
+  console.log("\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
+  console.log("\u2551  \u26A0\uFE0F  SAVE THIS MNEMONIC - IT WILL NOT BE SHOWN AGAIN            \u2551");
+  console.log("\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563");
+  console.log("\u2551                                                                  \u2551");
+  const words = mnemonic.split(" ");
+  for (let i = 0;i < words.length; i += 4) {
+    const line = words.slice(i, i + 4).map((w, j) => `${(i + j + 1).toString().padStart(2, " ")}. ${w.padEnd(10, " ")}`).join(" ");
+    console.log(`\u2551  ${line.padEnd(64, " ")}\u2551`);
+  }
+  console.log("\u2551                                                                  \u2551");
+  console.log("\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563");
+  console.log(`\u2551  Address (index 0): ${wallet.address}  \u2551`);
+  console.log("\u2551                                                                  \u2551");
+  console.log("\u2551  Next steps:                                                     \u2551");
+  console.log("\u2551  1. Save this mnemonic securely (password manager, paper, etc.)  \u2551");
+  console.log('\u2551  2. Set: export MOR_MNEMONIC="word1 word2 ..."                   \u2551');
+  console.log("\u2551  3. Send ETH to the address above for gas                        \u2551");
+  console.log("\u2551  4. Get MOR tokens (swap or purchase)                            \u2551");
+  console.log("\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
+  console.log("");
+}
+async function cmdWalletDerive(indexArg) {
+  const mnemonic = requireMnemonic();
+  const index2 = indexArg ? Number.parseInt(indexArg, 10) : config.walletIndex;
+  if (Number.isNaN(index2) || index2 < 0) {
+    console.error("\u274C Invalid index. Must be a non-negative integer.");
+    process.exit(1);
+  }
+  const wallet = deriveWallet(mnemonic, index2);
+  console.log(`
+\uD83D\uDCCD Wallet at index ${index2}
+`);
+  console.log(`   Address:         ${wallet.address}`);
+  console.log(`   Derivation Path: ${wallet.derivationPath}`);
+  console.log(`   Public Key:      ${wallet.publicKey.slice(0, 20)}...`);
+  console.log("");
+}
+async function cmdWalletBalance() {
+  const mnemonic = requireMnemonic();
+  const sdk = new MorDiemSDK({
+    mnemonic,
+    walletIndex: config.walletIndex,
+    rpcUrl: config.rpcUrl
+  });
+  console.log(`
+\uD83D\uDCB0 Balances for ${sdk.address}
+`);
+  try {
+    const balances = await sdk.getBalances();
+    console.log(`   ETH:  ${balances.ethFormatted}`);
+    console.log(`   MOR:  ${balances.morFormatted}`);
+    console.log(`   USDC: ${balances.usdcFormatted}`);
+    console.log("");
+    console.log(`   MOR Allowance (Diamond): ${balances.isUnlimitedAllowance ? "unlimited" : balances.morAllowanceFormatted}`);
+    console.log("");
+  } catch (e) {
+    console.error(`
+\u274C Error: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+async function cmdWalletApprove(amountArg) {
+  const mnemonic = requireMnemonic();
+  const sdk = new MorDiemSDK({
+    mnemonic,
+    walletIndex: config.walletIndex,
+    rpcUrl: config.rpcUrl
+  });
+  const displayAmount = amountArg || "unlimited";
+  console.log(`
+\uD83D\uDD13 Approving MOR for Morpheus Diamond contract...`);
+  console.log(`   Amount: ${displayAmount}`);
+  console.log(`   From:   ${sdk.address}
+`);
+  try {
+    const result = await sdk.approveMor(amountArg ? BigInt(amountArg) : undefined);
+    console.log("   \u2705 Approved");
+    console.log(`   Tx: ${result.txHash}`);
+    console.log("");
+  } catch (e) {
+    console.error(`
+\u274C Error: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+async function cmdModels() {
+  const sdk = createSDK();
+  console.log(`
+\uD83D\uDCCB Available Models (${sdk.mode} mode)
+`);
+  try {
+    const models = await sdk.listModels();
+    for (const model of models.data) {
+      console.log(`   \u2022 ${model.id}`);
+    }
+    console.log("");
+  } catch (e) {
+    console.error(`
+\u274C Error: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+async function cmdComplete(message) {
+  if (!message) {
+    console.error("\u274C Message is required");
+    console.error('   Usage: mor-diem complete "Your message here"');
+    process.exit(1);
+  }
+  const sdk = createSDK();
+  console.log(`
+\uD83E\uDD16 Completing with ${sdk.mode} mode...
+`);
+  try {
+    const response = await sdk.complete(message);
+    console.log(`Response:
+`);
+    console.log(response);
+    console.log("");
+  } catch (e) {
+    console.error(`
+\u274C Error: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+async function cmdHealth() {
+  const sdk = createSDK();
+  console.log(`
+\uD83C\uDFE5 Health Check
+`);
+  const result = await sdk.healthCheck();
+  console.log(`   Mode:     ${result.mode}`);
+  console.log(`   Base URL: ${result.baseUrl}`);
+  console.log(`   Status:   ${result.ok ? "\u2705 OK" : "\u274C Error"}`);
+  if (result.error) {
+    console.log(`   Error:    ${result.error}`);
+  }
+  console.log("");
+  process.exit(result.ok ? 0 : 1);
+}
+var [, , command, ...args] = process.argv;
+async function ensureConfigured() {
+  if (!isConfigured()) {
+    const newConfig = await runOnboarding();
+    if (!newConfig) {
+      process.exit(0);
+    }
+    if (newConfig.mnemonic)
+      config.mnemonic = newConfig.mnemonic;
+    if (newConfig.apiKey)
+      config.apiKey = newConfig.apiKey;
+    if (newConfig.walletIndex !== undefined)
+      config.walletIndex = newConfig.walletIndex;
+    if (newConfig.mode)
+      config.mode = newConfig.mode;
+  }
+}
+switch (command) {
+  case "wallet":
+    switch (args[0]) {
+      case "generate":
+        await cmdWalletGenerate();
+        break;
+      case "derive":
+        await cmdWalletDerive(args[1]);
+        break;
+      case "balance":
+        await cmdWalletBalance();
+        break;
+      case "approve":
+        await cmdWalletApprove(args[1]);
+        break;
+      default:
+        console.error(`\u274C Unknown wallet command: ${args[0]}`);
+        console.error("   Available: generate, derive, balance, approve");
+        process.exit(1);
+    }
+    break;
+  case "chat":
+    await ensureConfigured();
+    await startInteractiveChat({
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
+      rpcUrl: config.rpcUrl
+    });
+    break;
+  case "models":
+    await cmdModels();
+    break;
+  case "complete":
+    await cmdComplete(args.join(" "));
+    break;
+  case "health":
+    await cmdHealth();
+    break;
+  case "setup": {
+    const setupConfig = await runOnboarding();
+    if (setupConfig) {
+      console.log(`${c2.green}Setup complete!${c2.reset} Run 'mor-diem chat' to start chatting.
+`);
+    }
+    break;
+  }
+  case "help":
+  case "--help":
+  case "-h":
+    printHelp();
+    break;
+  case undefined:
+    if (!isConfigured()) {
+      await ensureConfigured();
+      await startInteractiveChat({
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+        rpcUrl: config.rpcUrl
+      });
+    } else {
+      printHelp();
+    }
+    break;
+  default:
+    console.error(`\u274C Unknown command: ${command}`);
+    printHelp();
+    process.exit(1);
+}

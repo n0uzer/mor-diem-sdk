@@ -32,23 +32,23 @@ import type { Hex } from 'viem'
 // =============================================================================
 
 export {
+	type ApproveResult,
+	approveMor,
+	type Balances,
 	CONTRACTS,
-	generateNewMnemonic,
-	isValidMnemonic,
+	type DerivedWallet,
 	deriveWalletFromMnemonic,
+	generateNewMnemonic,
+	getAccount,
+	getBalances,
 	getPrivateKey,
 	getPublicClient,
 	getWalletClient,
-	getAccount,
-	getBalances,
+	isValidMnemonic,
+	type SwapResult,
 	swapEthForMor,
 	swapUsdcForMor,
-	approveMor,
 	type WalletConfig,
-	type DerivedWallet,
-	type Balances,
-	type SwapResult,
-	type ApproveResult,
 } from './wallet/wallet.js'
 
 // =============================================================================
@@ -56,18 +56,18 @@ export {
 // =============================================================================
 
 export {
-	MorpheusClient,
-	createP2PClient,
 	AVAILABLE_MODELS,
-	THINKING_MODELS,
-	THINKING_MODEL_DEFAULT_TOKENS,
-	STANDARD_MODEL_DEFAULT_TOKENS,
-	type MorpheusClientConfig,
-	type ChatMessage,
+	type ChatCompletionChunk,
 	type ChatCompletionRequest,
 	type ChatCompletionResponse,
-	type ChatCompletionChunk,
+	type ChatMessage,
+	createP2PClient,
 	type ModelsResponse,
+	MorpheusClient,
+	type MorpheusClientConfig,
+	STANDARD_MODEL_DEFAULT_TOKENS,
+	THINKING_MODEL_DEFAULT_TOKENS,
+	THINKING_MODELS,
 } from './client/index.js'
 
 // =============================================================================
@@ -112,16 +112,16 @@ export interface MorDiemSDKConfig {
 
 import { MorpheusClient, type MorpheusClientConfig } from './client/index.js'
 import {
+	approveMor as approveFunc,
 	type Balances,
 	type DerivedWallet,
-	type WalletConfig,
-	approveMor as approveFunc,
 	deriveWalletFromMnemonic,
 	getAccount as getAccountFunc,
 	getBalances as getBalancesFunc,
 	isValidMnemonic as isValidMnemonicFunc,
 	swapEthForMor as swapEthFunc,
 	swapUsdcForMor as swapUsdcFunc,
+	type WalletConfig,
 } from './wallet/wallet.js'
 
 // =============================================================================

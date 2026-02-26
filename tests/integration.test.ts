@@ -17,6 +17,7 @@ import { beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
 
 // Inference can take a while - 60 second timeout
 setDefaultTimeout(60000)
+
 import { MorDiemSDK } from '../src/index'
 
 // Models to test inference on

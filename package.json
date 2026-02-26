@@ -1,20 +1,26 @@
 {
 	"name": "mor-diem-sdk",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "SDK and CLI for the Morpheus AI network",
 	"type": "module",
 	"main": "release/index.js",
-	"types": "release/src/index.d.ts",
 	"bin": {
 		"mor-diem": "./release/cli/mor-diem.js"
 	},
+	"files": [
+		"release/",
+		"docs/",
+		"README.md",
+		"LICENSE"
+	],
 	"scripts": {
 		"dev": "bun run src/index.ts",
 		"build": "bun build src/index.ts --outdir dist --target node",
-		"release": "bun run build && tsc -p tsconfig.build.json && rm -rf release && cp -r dist release",
+		"build:cli": "bun build src/cli/mor-diem.ts --outdir dist/cli --target node",
+		"release": "bun run build && bun run build:cli && rm -rf release && cp -r dist release",
 		"cli": "source .env 2>/dev/null; bun run src/cli/mor-diem.ts",
 		"chat": "source .env 2>/dev/null; bun run src/cli/mor-diem.ts chat",
-		"setup": "source .env 2>/dev/null; bun run src/cli/setup-router.ts",
+		"setup": "source .env 2>/dev/null; bun run scripts/setup-morpheus-node.ts",
 		"proxy": "source .env 2>/dev/null; bun run src/proxy/morpheus-proxy.mjs",
 		"test": "bun test",
 		"test:models": "source .env 2>/dev/null; bun run scripts/test-models.ts",
@@ -37,7 +43,16 @@
 	"engines": {
 		"bun": ">=1.0.0"
 	},
-	"keywords": ["morpheus", "mor", "diem", "inference", "ai", "decentralized", "blockchain", "base"],
+	"keywords": [
+		"morpheus",
+		"mor",
+		"diem",
+		"inference",
+		"ai",
+		"decentralized",
+		"blockchain",
+		"base"
+	],
 	"license": "UNLICENSED",
 	"author": "@robertjchristian"
 }
