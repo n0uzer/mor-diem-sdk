@@ -15,12 +15,12 @@ MOR DIEM:     Deposit MOR -> Use -> MOR returned
 
 | Fact | Value |
 |------|-------|
-| Current typical | ~2 MOR per session |
+| Current typical | ~2 MOR per session (as of Feb 2026) |
 | Who sets price | Providers (on-chain bids) |
-| Fixed? | No - subject to change |
+| Fixed? | **No** - expect this to change |
 | Per-model? | Yes - different providers, different prices |
 
-The SDK reads provider bids from the blockchain and stakes what's required. If network pricing changes, your stake requirement changes.
+**Pricing will change.** The ~2 MOR figure is a snapshot. As the network matures, providers will update their pricing. The SDK reads provider bids from the blockchain and stakes what's required - your code doesn't need to change, but your MOR requirements might.
 
 ## Session Model
 

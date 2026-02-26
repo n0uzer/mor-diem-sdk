@@ -101,8 +101,53 @@ for await (const chunk of sdk.createChatCompletionStream({
 // Models
 const models = await sdk.listModels()
 
-// Health
+// Health (includes active sessions)
 const health = await sdk.healthCheck()
+```
+
+### Session & Staking Behavior
+
+**How it works:** The proxy automatically opens sessions (stakes MOR) when you make your first inference request to a model. You don't need to manually stake.
+
+**Prerequisites:**
+1. Wallet has MOR tokens (~2 MOR per model)
+2. MOR approved for Diamond contract (`sdk.approveMor()`)
+3. Morpheus router running with your wallet's cookie
+
+### Error Handling
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Morpheus session unavailable` | Not staked or insufficient MOR | Check balance, ensure MOR approved |
+| `Unknown model: xyz` | Model doesn't exist | Use `sdk.listModels()` to see available |
+| `Request timed out` | Inference took too long | Retry, or check provider availability |
+| `Morpheus inference error` | Provider failed | SDK auto-retries; if persists, try different model |
+
+```typescript
+try {
+  const response = await sdk.complete('Hello', { model: 'kimi-k2.5' })
+} catch (err) {
+  if (err.message.includes('session unavailable')) {
+    // Not staked - check balance and approval
+    const balances = await sdk.getBalances()
+    console.log(`MOR: ${balances.morFormatted}, Approved: ${balances.morAllowanceFormatted}`)
+  } else if (err.message.includes('Unknown model')) {
+    // Model doesn't exist - list available
+    const models = await sdk.listModels()
+    console.log('Available:', models.data.map(m => m.id))
+  }
+}
+```
+
+### Listing Models
+
+`listModels()` returns all models available on the network. It does NOT indicate which models you're currently staked for.
+
+To see active sessions, use `healthCheck()`:
+
+```typescript
+const health = await sdk.healthCheck()
+// health.activeSessions shows models with active stake
 ```
 
 ### Static Methods
