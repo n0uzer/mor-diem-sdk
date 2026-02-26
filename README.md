@@ -42,16 +42,16 @@ We are **NOT** a consumer node. We provide tools that **talk to** a consumer nod
 ```mermaid
 sequenceDiagram
     participant App as Your App
-    participant SDK as SDK (our code)
-    participant Proxy as Our Proxy (embeddable)
-    participant Node as Consumer Node (proxy-router)
+    participant SDK as mor-diem-sdk
+    participant Proxy as mor-diem-sdk (embeddable proxy)
+    participant Node as Morpheus Node (proxy-router binary)
     participant Provider as AI Provider
 
     App->>SDK: sdk.complete("Hello")
     SDK->>Proxy: POST /v1/chat/completions
     Note over Proxy: Translates OpenAI API<br/>to Morpheus protocol
     Proxy->>Node: Forward with session auth
-    Note over Node: Morpheus binary<br/>(you download or use hosted)
+    Note over Node: Download from<br/>github.com/MorpheusAIs/Morpheus-Lumerin-Node
     Node->>Provider: Route via P2P network
     Provider-->>Node: AI response
     Node-->>Proxy: Response
@@ -71,10 +71,10 @@ The proxy is a **single JavaScript file** (`src/proxy/morpheus-proxy.mjs`). You 
 flowchart LR
     subgraph "Your App Process"
         App[Your Code]
-        SDK[SDK]
-        Proxy[Embedded Proxy]
+        SDK[mor-diem-sdk]
+        Proxy[mor-diem-sdk proxy]
     end
-    Node[Consumer Node<br/>proxy-router binary]
+    Node[Morpheus Node<br/>proxy-router binary]
     Providers[AI Providers]
 
     App --> SDK --> Proxy --> Node --> Providers
@@ -85,10 +85,10 @@ flowchart LR
 | Setup | What You Run | Consumer Node | Cost |
 |-------|--------------|---------------|------|
 | **[api.mor.org](https://api.mor.org)** | Nothing | Run by Morpheus | Pay USD |
-| **SDK + local consumer node** | Our proxy + [proxy-router](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) | You run locally | Stake MOR |
-| **SDK + remote consumer node** | Our proxy only | Point to remote | Stake MOR |
+| **SDK + local Morpheus Node** | mor-diem-sdk + [proxy-router](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) | You run locally | Stake MOR |
+| **SDK + remote Morpheus Node** | mor-diem-sdk only | Point to remote | Stake MOR |
 
-**Typical setup:** Run our proxy (embeddable) + download [proxy-router](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB binary).
+**Typical setup:** Run mor-diem-sdk (embeddable proxy) + download [proxy-router](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB binary).
 
 ## Installation
 

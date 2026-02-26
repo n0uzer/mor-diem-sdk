@@ -3,10 +3,10 @@
 ## The Simple Version
 
 ```
-Your App → Our Proxy → Lumerin Router → AI Providers
+Your App → mor-diem-sdk proxy → Lumerin Router → AI Providers
 ```
 
-**Our proxy** (`morpheus-proxy.mjs`) translates OpenAI API calls to Morpheus protocol.
+**mor-diem-sdk proxy** (`morpheus-proxy.mjs`) translates OpenAI API calls to Morpheus protocol.
 
 **Lumerin router** is the official Morpheus node. It handles blockchain, P2P, staking. You need access to one:
 - Run locally (download binary)
@@ -27,7 +27,7 @@ Currently it auto-starts on import. To embed, you'd refactor to export a `startP
 | Component | Code | What It Does |
 |-----------|------|--------------|
 | **Your app** | Yours | Makes OpenAI-style API calls |
-| **Our proxy** | `src/proxy/morpheus-proxy.mjs` | Translates API, manages sessions |
+| **mor-diem-sdk proxy** | `src/proxy/morpheus-proxy.mjs` | Translates API, manages sessions |
 | **Lumerin router** | Official binary | Blockchain ops, P2P network |
 
 ## Configuration
@@ -99,7 +99,7 @@ MOR_API_KEY="your-api-key"  # From app.mor.org
 
 | Port | Component | Notes |
 |------|-----------|-------|
-| 8083 | Our proxy | Your app connects here |
+| 8083 | mor-diem-sdk proxy | Your app connects here |
 | 9081 | Lumerin router | Proxy connects here |
 
 ## FAQ

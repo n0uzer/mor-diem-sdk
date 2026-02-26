@@ -8,23 +8,23 @@ There are TWO pieces. mor-diem-sdk is ONE of them:
 
 | Piece | Port | Code | What It Does |
 |-------|------|------|--------------|
-| **OpenAI Translator** | 8083 | `src/proxy/morpheus-proxy.mjs` (mor-diem-sdk) | Converts OpenAI API calls to Morpheus format |
-| **Morpheus Node** | 9081 | [Lumerin binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (external, ~56MB download) | Connects to P2P network, stakes MOR, talks to providers |
+| **mor-diem-sdk** | 8083 | `src/proxy/morpheus-proxy.mjs` | Converts OpenAI API calls to Morpheus format |
+| **Morpheus Node** | 9081 | [proxy-router binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB download) | Connects to P2P network, stakes MOR, routes to providers |
 
 **Standalone mode:**
 ```
-Your App → mor-diem-sdk Translator (8083) → Morpheus Node (9081) → AI Providers
-                  ↑                                ↑
-           separate process                   separate binary
+Your App → mor-diem-sdk (8083) → Morpheus Node (9081) → AI Providers
+                ↑                        ↑
+         this repo               download from github.com/MorpheusAIs/Morpheus-Lumerin-Node
 ```
 
 **Embedded mode (proxy in same process as your app):**
 ```
 ┌─────────────────────────────────┐
 │ Your App Process                │
-│  Your Code → SDK → Translator   │ ──→ Morpheus Node (9081) → AI Providers
-│         (all mor-diem-sdk)      │            ↑
-└─────────────────────────────────┘      separate binary
+│  Your Code → mor-diem-sdk       │ ──→ Morpheus Node (9081) → AI Providers
+│         (SDK + embedded proxy)  │            ↑
+└─────────────────────────────────┘      download from Morpheus
 ```
 
 **Connection is configured via env var:**
@@ -41,9 +41,9 @@ There is **no public Morpheus Node**. You run it yourself or use api.mor.org.
 
 ## Confusing Names
 
-Morpheus calls their binary `proxy-router`. We call our file `morpheus-proxy.mjs`. Both have "proxy" in the name. Ignore that. Just remember:
-- **Ours (8083):** Translates API format
-- **Theirs (9081):** Actually connects to the network
+Morpheus's binary is called `proxy-router`. This SDK's proxy is `morpheus-proxy.mjs`. Both have "proxy" in the name. Just remember:
+- **mor-diem-sdk (8083):** Translates API format
+- **Morpheus Node (9081):** Connects to the network
 
 ## Stack
 
@@ -141,7 +141,7 @@ Update `EXPECTED_MAX_STAKE_PER_MODEL` in `tests/integration.test.ts` if prices c
 - "mor-diem-sdk" = this repo (SDK + proxy + CLI), always lowercase with hyphens
 - "MOR" = Morpheus token
 - "consumer node" = Morpheus's [proxy-router binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node) (~56MB, download separately)
-- "our proxy" = `morpheus-proxy.mjs` (embeddable, translates OpenAI API)
+- "mor-diem-sdk proxy" = `morpheus-proxy.mjs` (embeddable, translates OpenAI API)
 - "api.mor.org" = hosted by Morpheus (they run the consumer node, you pay USD)
 - "provider" = runs AI models, earns MOR
 
