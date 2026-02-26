@@ -1,7 +1,7 @@
 {
 	"name": "mor-diem-sdk",
 	"version": "0.1.0",
-	"description": "Morpheus consumer node with SDK and CLI",
+	"description": "SDK and CLI for the Morpheus AI network",
 	"type": "module",
 	"main": "release/index.js",
 	"types": "release/src/index.d.ts",

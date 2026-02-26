@@ -4,18 +4,25 @@
 
 ## What This Is
 
-Morpheus consumer node with SDK and CLI. Same infrastructure that powers api.mor.org, but you run it yourself.
+SDK and CLI for the Morpheus AI network. Stake MOR, access AI inference.
+
+**We are NOT a consumer node.** We provide tools that talk to one:
+- **SDK** (`src/`) - TypeScript client
+- **Proxy** (`src/proxy/morpheus-proxy.mjs`) - OpenAI API → Morpheus protocol translator (embeddable)
+- **CLI** (`bin/`) - Command-line tools
+
+The actual [Consumer Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/blob/main/docs/04-consumer-setup.md) is Morpheus's `proxy-router` binary (~56MB) that users download separately.
 
 ## Stack
 
-- TypeScript
+- TypeScript / Bun
 - CLI tooling
 
 ## Key Features
 
-- MOR token staking
-- Consumer node management
-- API inference routing
+- MOR token staking (refundable deposits)
+- OpenAI-compatible inference API
+- Embeddable proxy (~500 lines)
 
 ## Gotchas
 
@@ -99,11 +106,12 @@ Update `EXPECTED_MAX_STAKE_PER_MODEL` in `tests/integration.test.ts` if prices c
 
 ## Terminology
 
-- "mor-diem-sdk" = this repo, always lowercase with hyphens
+- "mor-diem-sdk" = this repo (SDK + proxy + CLI), always lowercase with hyphens
 - "MOR" = Morpheus token
-- "consumer node" = infrastructure that stakes MOR and routes inference
-- "api.mor.org" = hosted gateway in front of a consumer node (pay USD)
-- "mor-diem-sdk" = run your own consumer node (stake MOR, refundable)
+- "consumer node" = Morpheus's [proxy-router binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node) (~56MB, download separately)
+- "our proxy" = `morpheus-proxy.mjs` (embeddable, translates OpenAI API)
+- "api.mor.org" = hosted by Morpheus (they run the consumer node, you pay USD)
+- "provider" = runs AI models, earns MOR
 
 ## Architecture Deep Dive
 

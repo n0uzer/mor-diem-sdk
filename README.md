@@ -3,7 +3,7 @@
 <h2 align="center">mor-diem-sdk</h2>
 
 <p align="center">
-  <strong>Stake MOR. Access AI. Embed anywhere.</strong>
+  <strong>SDK and CLI for the Morpheus AI network</strong>
 </p>
 
 <p align="center">
@@ -18,21 +18,77 @@
 
 Your MOR stake is a **refundable deposit** (not payment). Tokens lock for 7 days, then return to you.
 
-## What's a Consumer Node?
+## How Morpheus Works
 
-Morpheus has two sides:
-- **Providers** run AI models, earn MOR
-- **Consumers** stake MOR, get inference
+See [Morpheus documentation](https://github.com/MorpheusAIs/Docs) for full details.
 
-This SDK is **consumer node infrastructure** - the same stack that powers [api.mor.org](https://api.mor.org), but you run it yourself.
+**Key terms:**
+- [**Consumer Node**](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/blob/main/docs/04-consumer-setup.md) - Morpheus's `proxy-router` binary that connects to the network, manages sessions, stakes MOR, and routes inference to providers
+- **Provider** - Runs AI models, earns MOR
+- **Session** - Time-based rental (stake MOR for 7 days, get it back)
 
-| Option | What You Run | Cost |
-|--------|--------------|------|
-| **[api.mor.org](https://api.mor.org)** | Nothing | Pay USD |
-| **This SDK** | Proxy (embeddable) | Stake MOR (refundable) |
-| **Full P2P** | Proxy + Router | Stake MOR (refundable) |
+## What This SDK Provides
 
-**Most users:** Run the proxy, stake MOR, access AI. The proxy is just Node.js code - embed it in your app or run standalone.
+We are **NOT** a consumer node. We provide tools that **talk to** a consumer node:
+
+| Component | What It Does | Footprint |
+|-----------|--------------|-----------|
+| **SDK** (`src/`) | TypeScript client for staking, models, inference | ~50KB |
+| **Proxy** (`src/proxy/morpheus-proxy.mjs`) | Translates OpenAI API → Morpheus protocol | Single file, ~500 lines |
+| **CLI** (`bin/`) | Command-line tools for setup and chat | Development only |
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    participant App as Your App
+    participant SDK as SDK (our code)
+    participant Proxy as Our Proxy (embeddable)
+    participant Node as Consumer Node (proxy-router)
+    participant Provider as AI Provider
+
+    App->>SDK: sdk.complete("Hello")
+    SDK->>Proxy: POST /v1/chat/completions
+    Note over Proxy: Translates OpenAI API<br/>to Morpheus protocol
+    Proxy->>Node: Forward with session auth
+    Note over Node: Morpheus binary<br/>(you download or use hosted)
+    Node->>Provider: Route via P2P network
+    Provider-->>Node: AI response
+    Node-->>Proxy: Response
+    Proxy-->>SDK: OpenAI-format response
+    SDK-->>App: "Hello! How can I help?"
+```
+
+### Embedding the Proxy
+
+The proxy is a **single JavaScript file** (`src/proxy/morpheus-proxy.mjs`). You can:
+
+1. **Run standalone:** `bun run proxy` (port 8083)
+2. **Embed in your app:** Import and run in same process
+3. **Skip entirely:** Point SDK directly at a consumer node (loses OpenAI compatibility)
+
+```mermaid
+flowchart LR
+    subgraph "Your App Process"
+        App[Your Code]
+        SDK[SDK]
+        Proxy[Embedded Proxy]
+    end
+    Node[Consumer Node<br/>proxy-router binary]
+    Providers[AI Providers]
+
+    App --> SDK --> Proxy --> Node --> Providers
+```
+
+## Your Options
+
+| Setup | What You Run | Consumer Node | Cost |
+|-------|--------------|---------------|------|
+| **[api.mor.org](https://api.mor.org)** | Nothing | Run by Morpheus | Pay USD |
+| **SDK + local consumer node** | Our proxy + [proxy-router](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) | You run locally | Stake MOR |
+| **SDK + remote consumer node** | Our proxy only | Point to remote | Stake MOR |
+
+**Typical setup:** Run our proxy (embeddable) + download [proxy-router](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB binary).
 
 ## Installation
 
