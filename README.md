@@ -89,26 +89,23 @@ console.log(response)
 
 ## Architecture
 
-**Important:** You need TWO processes running:
-
 ```
-Your App (OpenAI API)
-    ↓
-morpheus-proxy (:8083) ← Our code, translates to Morpheus protocol
-    ↓
-morpheus-router (:9081) ← Official binary, handles blockchain/P2P
-    ↓
-AI Providers
+Your App → Our Proxy (:8083) → Lumerin Router (:9081) → AI Providers
 ```
 
-| Component | Port | What It Does |
-|-----------|------|--------------|
-| morpheus-proxy | 8083 | OpenAI-compatible API wrapper |
-| morpheus-router | 9081 | Blockchain ops, provider connections |
+| Component | What It Does |
+|-----------|--------------|
+| **Our proxy** | Translates OpenAI API → Morpheus protocol |
+| **Lumerin router** | Official Morpheus node (blockchain, P2P) |
 
-**This is not embeddable.** Both processes must run. For deployment, containerize both (see [architecture.md](docs/architecture.md)).
+**Proxy is embeddable** - it's just Node.js code. Run separately or in your app's process.
 
-**Don't want to run infrastructure?** Use [api.mor.org](https://api.mor.org) instead - they host it for you.
+**Router options:**
+- Run locally (download [Lumerin binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases))
+- Point to a remote router (`MORPHEUS_ROUTER_URL`)
+- Skip both - use [api.mor.org](https://api.mor.org) (they run everything)
+
+See [architecture.md](docs/architecture.md) for details.
 
 ## Available Models
 
@@ -199,28 +196,25 @@ new MorDiemSDK({ privateKey: '0x...' })
 - [Pricing Comparison](docs/pricing-comparison.md) - Morpheus vs traditional APIs
 - [Lessons Learned](docs/lessons-learned.md) - Integration insights
 
-## Running the Proxy Stack
-
-Both processes must be running:
+## Running Locally
 
 ```bash
-# Terminal 1: Start router (download binary first)
+# 1. Start router (if running locally)
 cd bin/morpheus && ./morpheus-router  # Port 9081
 
-# Terminal 2: Start proxy
+# 2. Start proxy
 bun run proxy  # Port 8083
 
-# Terminal 3: Your app connects to http://localhost:8083
+# 3. Your app connects to http://localhost:8083
 ```
 
-**For production:** Containerize both processes. See [architecture.md](docs/architecture.md) for Docker guidance.
+**Router binary:** Download from [Morpheus releases](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases).
 
-**Router binary:** Download from [Morpheus releases](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases). Place in `bin/morpheus/`.
+**Or skip local router:** Set `MORPHEUS_ROUTER_URL` to point to a remote one.
 
 ## Security
 
-- **Never commit mnemonics** - Use environment variables or the config file
-- **Config file is protected** - `~/.mor-diem/config` is readable only by you (mode 0600)
+- **Never commit mnemonics** - Use `.env` (gitignored) or environment variables
 - **Use a dedicated wallet** - Don't use your main holdings for inference
 - **Approve reasonable amounts** - Don't use MAX_UINT256 for approvals
 

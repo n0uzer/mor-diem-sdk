@@ -1,122 +1,114 @@
 # Architecture
 
-## Why Two Components?
-
-You need TWO things running to use mor-diem-sdk:
-
-| Component | What It Is | Why You Need It |
-|-----------|------------|-----------------|
-| **morpheus-router** | Official Morpheus binary | Blockchain ops, P2P network, provider connections |
-| **morpheus-proxy** | Our OpenAI wrapper | Translates OpenAI API → Router's weird API |
-
-**You cannot embed this in your app.** Both must run as separate processes.
-
-## The Stack
+## The Simple Version
 
 ```
-Your App (any language)
-    ↓ Standard OpenAI API (POST /v1/chat/completions)
-morpheus-proxy (:8083) ← Our code, OpenAI-compatible
-    ↓ Custom Morpheus Protocol (session headers, model IDs, Basic auth)
-morpheus-router (:9081) ← Official binary from Morpheus
-    ↓ Base blockchain + P2P
-AI Providers
+Your App → Our Proxy → Lumerin Router → AI Providers
 ```
 
-## Why Can't I Just Use the Router Directly?
+**Our proxy** (`morpheus-proxy.mjs`) translates OpenAI API calls to Morpheus protocol.
 
-The router doesn't speak OpenAI API. It has a custom protocol:
-- Requires `session_id` and `model_id` headers
-- Uses Basic auth from a `.cookie` file
-- Model names are blockchain hashes (e.g., `0xbb9e920d94ad3fa2...`)
-- Sessions must be opened/renewed manually
+**Lumerin router** is the official Morpheus node. It handles blockchain, P2P, staking. You need access to one:
+- Run locally (download binary)
+- Point `MORPHEUS_ROUTER_URL` to a hosted one
+- Use [api.mor.org](https://api.mor.org) (they run everything for you)
 
-Our proxy handles all of this, giving you a clean OpenAI-compatible API.
+## Can I Embed the Proxy?
 
-## What the Proxy Does
+**Yes.** The proxy is just a Node.js HTTP server. You can:
+- Run it as a separate process (current approach)
+- Import and start it in your app's process
+- Use the handler directly without HTTP
 
-| Feature | Without Proxy | With Proxy |
-|---------|---------------|------------|
-| API format | Custom Morpheus headers | Standard OpenAI |
-| Model names | Hex hashes | Human names (`kimi-k2.5`) |
-| Sessions | Manual open/renew | Auto on first request |
-| Auth | Read .cookie, Base64 encode | Just works |
-| Session expiry | Track manually | Auto-renews 1hr before |
+Currently it auto-starts on import. To embed, you'd refactor to export a `startProxy()` function.
 
-## Deployment Options
+## What Does Each Piece Do?
 
-### Development (Local)
+| Component | Code | What It Does |
+|-----------|------|--------------|
+| **Your app** | Yours | Makes OpenAI-style API calls |
+| **Our proxy** | `src/proxy/morpheus-proxy.mjs` | Translates API, manages sessions |
+| **Lumerin router** | Official binary | Blockchain ops, P2P network |
+
+## Configuration
+
+**Pick one approach:**
+
+### Option A: Environment Variables (recommended)
 
 ```bash
-# Terminal 1: Start router
-cd bin/morpheus && ./morpheus-router
-
-# Terminal 2: Start proxy
-bun run proxy
-
-# Terminal 3: Your app
-curl http://localhost:8083/v1/chat/completions ...
+# .env
+MOR_MNEMONIC="your seed phrase"
+MORPHEUS_ROUTER_URL="http://localhost:9081"  # or remote
 ```
 
-### Production (Docker)
+### Option B: CLI Config File
 
-You need to containerize both:
-
-```dockerfile
-# Option A: Two containers
-- morpheus-router container (port 9081)
-- morpheus-proxy container (port 8083) ← expose this
-
-# Option B: Single container with both processes
-- supervisor/s6 managing both processes
+The CLI saves to `~/.mor-diem/config`:
+```json
+{
+  "mnemonic": "your seed phrase",
+  "walletIndex": 0,
+  "mode": "p2p"
+}
 ```
 
-**Expose only the proxy (8083).** The router (9081) stays internal.
+Env vars override the config file.
 
-### Hosted Alternative
+## Router Options
 
-Don't want to run infrastructure? Use **[api.mor.org](https://api.mor.org)**:
-- They run the router + proxy
-- You just make HTTP calls
-- Pay per use instead of staking
+### Local Router (Full Control)
+
+Download the [Lumerin router binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases), run it locally.
+
+```bash
+cd bin/morpheus && ./morpheus-router  # Creates .cookie, manages your wallet
+```
+
+### Remote Router
+
+If someone hosts a router you trust:
+
+```bash
+MORPHEUS_ROUTER_URL="https://router.example.com:9081"
+```
+
+Note: Auth may be different for remote routers.
+
+### Hosted (api.mor.org)
+
+Don't want to run anything? Use the hosted gateway:
+
+```bash
+MOR_API_KEY="your-api-key"  # From app.mor.org
+# No router needed - they run everything
+```
 
 ## Data Flow
 
 ```
-1. Your app calls: POST /v1/chat/completions { model: "kimi-k2.5", messages: [...] }
-2. Proxy looks up model ID: "kimi-k2.5" → "0xbb9e920d94ad3fa2..."
-3. Proxy checks for active session, opens one if needed (stakes MOR)
-4. Proxy forwards to router with: session_id, model_id, Basic auth headers
-5. Router connects to provider via P2P
-6. Response flows back through proxy to your app
+1. Your app: POST /v1/chat/completions { model: "kimi-k2.5", ... }
+2. Proxy: Look up model ID, check/open session
+3. Proxy: Forward to router with session headers
+4. Router: Connect to provider via P2P
+5. Provider: Generate response
+6. Response flows back through the chain
 ```
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| `src/proxy/morpheus-proxy.mjs` | Our OpenAI proxy |
-| `bin/morpheus/morpheus-router` | Official router binary (download separately) |
-| `bin/morpheus/.cookie` | Router auth credentials |
-| `bin/morpheus/data/` | Router's blockchain state |
 
 ## Ports
 
-| Port | Component | Expose? |
-|------|-----------|---------|
-| 8083 | morpheus-proxy | Yes - your apps connect here |
-| 9081 | morpheus-router | No - internal only |
+| Port | Component | Notes |
+|------|-----------|-------|
+| 8083 | Our proxy | Your app connects here |
+| 9081 | Lumerin router | Proxy connects here |
 
-## Can I...
+## FAQ
 
-**Run just the SDK without proxy/router?**
-No. The SDK is a client library. It needs the proxy running to talk to.
+**Do I need Docker?**
+No. Two Node.js processes (or one if you embed the proxy).
 
-**Embed this in a serverless function?**
-No. You need persistent processes (router + proxy).
+**Can I use serverless?**
+The proxy needs to maintain session state. Traditional serverless (cold starts) won't work well. A persistent container or VM is better.
 
-**Use this from a browser?**
-No. The proxy runs server-side. Your browser app would call your backend, which calls the proxy.
-
-**Scale horizontally?**
-Multiple proxy instances can share one router. Or run multiple router+proxy pairs.
+**Can I scale horizontally?**
+Multiple app instances can share one proxy. Multiple proxies can share one router. Or run independent stacks.
