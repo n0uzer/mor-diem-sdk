@@ -9,9 +9,6 @@ dist/
 .env.local
 .keys.env
 
-# Reference material (not part of our codebase)
-reference/
-
 # IDE
 .idea/
 .vscode/

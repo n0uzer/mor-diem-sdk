@@ -107,20 +107,35 @@ Your App → Our Proxy (:8083) → Lumerin Router (:9081) → AI Providers
 
 See [architecture.md](docs/architecture.md) for details.
 
-## Available Models
+## Model Status
 
-| Model | Notes |
-|-------|-------|
-| `kimi-k2.5` | General reasoning (recommended) |
-| `kimi-k2.5:web` | Web search enabled |
-| `kimi-k2-thinking` | Extended reasoning |
-| `glm-4.7` / `glm-4.7-flash` | GLM models |
-| `glm-5` | Latest GLM |
-| `hermes-4-14b` | Hermes instruct |
-| `gpt-oss-120b` | Open-source GPT |
-| `MiniMax-M2.5` | MiniMax model |
+> **Last tested:** February 26, 2026 | **31 of 37 working** | [Full Dashboard](docs/model-status/)
 
-Models are dynamically refreshed from the blockchain.
+| Status | Count |
+|--------|-------|
+| ✅ Working | 31 |
+| ⬜ No provider | 5 |
+| ❌ Provider error | 1 |
+
+### Recommended Models
+
+| Model | Speed | Notes |
+|-------|-------|-------|
+| `venice-uncensored` | ~350ms | Fastest |
+| `mistral-31-24b` | ~500ms | Fast, reliable |
+| `qwen3-coder-480b-a35b-instruct` | ~680ms | Best for coding |
+| `kimi-k2.5` | ~2s | Deep reasoning |
+| `hermes-3-llama-3.1-405b` | ~800ms | Large model |
+
+Add `:web` suffix for web search: `mistral-31-24b:web`, `glm-4.7:web`, etc.
+
+### Run Your Own Tests
+
+```bash
+bun run scripts/test-models.ts
+```
+
+Results saved to `docs/model-status/` with timestamps.
 
 ## CLI Commands
 
@@ -188,6 +203,7 @@ new MorDiemSDK({ privateKey: '0x...' })
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and fixes
 
 **Reference:**
+- [Model Status](docs/model-status.md) - Live dashboard of all 37 models
 - [SDK API](docs/sdk-api.md) - Full TypeScript API, balances, error handling
 - [Architecture](docs/architecture.md) - System components and data flow
 

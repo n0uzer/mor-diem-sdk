@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Status - mor-diem-sdk</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #0d1117;
+      color: #c9d1d9;
+    }
+    h1 { color: #58a6ff; margin-bottom: 5px; }
+    .meta { color: #8b949e; font-size: 14px; margin-bottom: 20px; }
+    .error-box {
+      background: #161b22;
+      border: 1px solid #f85149;
+      border-radius: 6px;
+      padding: 20px;
+      margin: 40px 0;
+    }
+    .error-box h2 { color: #f85149; margin-top: 0; }
+    .error-box code {
+      display: block;
+      background: #0d1117;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 30px; }
+    .stat { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 15px; text-align: center; }
+    .stat-value { font-size: 32px; font-weight: bold; }
+    .stat-label { font-size: 12px; color: #8b949e; }
+    .working .stat-value { color: #3fb950; }
+    .error .stat-value { color: #f85149; }
+    .no-provider .stat-value { color: #8b949e; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid #30363d; }
+    th { color: #8b949e; font-weight: normal; }
+    .status-working { color: #3fb950; }
+    .status-error { color: #f85149; }
+    .status-no-provider { color: #8b949e; }
+    code { background: #161b22; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+    #content { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Model Status</h1>
+
+  <div id="file-error" style="display:none">
+    <div class="error-box">
+      <h2>Cannot load from filesystem</h2>
+      <p>Browser security prevents loading data from file://</p>
+      <p><strong>Option 1:</strong> Run a local server</p>
+      <code>cd docs/model-status && python3 -m http.server 8000</code>
+      <p>Then open <a href="http://localhost:8000" style="color:#58a6ff">http://localhost:8000</a></p>
+      <p><strong>Option 2:</strong> Use the npm command</p>
+      <code>bun run model-status</code>
+    </div>
+  </div>
+
+  <div id="content">
+    <div class="meta" id="meta"></div>
+    <div class="summary" id="summary"></div>
+    <table>
+      <thead><tr><th>Model</th><th>Status</th><th>Response Time</th><th>Notes</th></tr></thead>
+      <tbody id="results"></tbody>
+    </table>
+  </div>
+
+  <script>
+    function timeAgo(date) {
+      const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+      if (seconds < 60) return 'just now';
+      if (seconds < 3600) return Math.floor(seconds / 60) + ' minutes ago';
+      if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
+      return Math.floor(seconds / 86400) + ' days ago';
+    }
+
+    function el(tag, cls, txt) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (txt) e.textContent = txt;
+      return e;
+    }
+
+    async function load() {
+      if (window.location.protocol === 'file:') {
+        document.getElementById('file-error').style.display = 'block';
+        return;
+      }
+
+      try {
+        const indexRes = await fetch('index.json');
+        const index = await indexRes.json();
+        if (!index.length) throw new Error('No test results found');
+
+        const res = await fetch(index[0]);
+        const data = await res.json();
+
+        document.getElementById('content').style.display = 'block';
+
+        const meta = document.getElementById('meta');
+        meta.append('Last tested: ');
+        meta.append(el('strong', null, timeAgo(data.timestamp)));
+        meta.append(' • Wallet: ');
+        meta.append(el('code', null, data.wallet));
+        meta.append(data.sufficientBalance ? ' • Balance: OK' : ' • ⚠️ Low balance');
+
+        const summary = document.getElementById('summary');
+        [
+          { cls: 'working', val: data.summary.working, label: 'Working' },
+          { cls: 'error', val: data.summary.providerError, label: 'Provider Error' },
+          { cls: 'no-provider', val: data.summary.noProvider, label: 'No Provider' },
+          { cls: '', val: data.summary.total, label: 'Total' }
+        ].forEach(s => {
+          const div = el('div', 'stat ' + s.cls);
+          div.append(el('div', 'stat-value', String(s.val)));
+          div.append(el('div', 'stat-label', s.label));
+          summary.append(div);
+        });
+
+        const tbody = document.getElementById('results');
+        data.results.forEach(r => {
+          const tr = document.createElement('tr');
+
+          const tdModel = document.createElement('td');
+          tdModel.append(el('code', null, r.model));
+          tr.append(tdModel);
+
+          const tdStatus = document.createElement('td');
+          if (r.status === 'working') {
+            tdStatus.className = 'status-working';
+            tdStatus.textContent = '✅ Working';
+          } else if (r.status === 'provider_error') {
+            tdStatus.className = 'status-error';
+            tdStatus.textContent = '❌ Error';
+          } else if (r.status === 'no_provider') {
+            tdStatus.className = 'status-no-provider';
+            tdStatus.textContent = '⬜ No provider';
+          } else {
+            tdStatus.className = 'status-error';
+            tdStatus.textContent = '⏱️ Timeout';
+          }
+          tr.append(tdStatus);
+
+          tr.append(el('td', null, r.responseTimeMs ? r.responseTimeMs + 'ms' : '-'));
+          tr.append(el('td', null, r.error || (r.responseLength === 0 ? 'Thinking model' : '')));
+          tbody.append(tr);
+        });
+
+      } catch (err) {
+        document.getElementById('file-error').style.display = 'block';
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

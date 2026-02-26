@@ -16,6 +16,37 @@
  */
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+/**
+ * Models that use reasoning tokens before responding.
+ * These need higher max_tokens to produce actual content.
+ */
+export const THINKING_MODELS = new Set([
+	'kimi-k2.5',
+	'kimi-k2.5:web',
+	'kimi-k2-thinking',
+	'kimi-k2-thinking:web',
+	'glm-4.7-thinking',
+	'glm-4.7-thinking:web',
+	'glm-4.7-flash',
+	'glm-4.7-flash:web',
+	'glm-5',
+	'glm-5:web',
+	'gpt-oss-120b',
+	'gpt-oss-120b:web',
+	'qwen3-235b',
+	'qwen3-235b:web',
+])
+
+/** Default max_tokens for thinking models (need more for reasoning) */
+export const THINKING_MODEL_DEFAULT_TOKENS = 2000
+
+/** Default max_tokens for standard models */
+export const STANDARD_MODEL_DEFAULT_TOKENS = 256
+
+// =============================================================================
 // Types
 // =============================================================================
 
@@ -343,7 +374,10 @@ export class MorpheusClient {
 	}
 
 	/**
-	 * Simple completion helper - just send a message and get a response
+	 * Simple completion helper - just send a message and get a response.
+	 *
+	 * Automatically uses higher max_tokens for thinking models to ensure
+	 * they have enough tokens for reasoning + response.
 	 */
 	async complete(
 		message: string,
@@ -362,11 +396,20 @@ export class MorpheusClient {
 
 		messages.push({ role: 'user', content: message })
 
+		// Auto-adjust max_tokens for thinking models if not explicitly set
+		const model = options?.model ?? this.defaultModel
+		let maxTokens = options?.maxTokens
+		if (maxTokens === undefined) {
+			maxTokens = THINKING_MODELS.has(model)
+				? THINKING_MODEL_DEFAULT_TOKENS
+				: STANDARD_MODEL_DEFAULT_TOKENS
+		}
+
 		const response = await this.createChatCompletion({
-			model: options?.model,
+			model,
 			messages,
 			temperature: options?.temperature,
-			max_tokens: options?.maxTokens,
+			max_tokens: maxTokens,
 		})
 
 		return response.choices[0]?.message?.content ?? ''
