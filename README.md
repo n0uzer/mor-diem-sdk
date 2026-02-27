@@ -171,11 +171,23 @@ Models vary by provider availability, latency, and capability. We don't have eno
 - **8082** - HTTP API (what we connect to)
 - **9081** - TCP/P2P protocol (not HTTP)
 
-## Chain
+## Tokens & Economics
 
-Everything happens on **Base** (Coinbase L2). You need:
-- ETH on Base for gas
-- MOR tokens on Base for staking
+Everything happens on **Base** (Coinbase L2, chain ID 8453).
+
+| Token | Used For | Amount | Notes |
+|-------|----------|--------|-------|
+| **MOR** | Staking deposits | ~2 MOR per model | Refundable after 7 days |
+| **ETH** | Gas fees | ~$0.01 per tx | For approvals, session opens |
+
+**MOR is NOT spent.** It's a refundable deposit:
+1. Lock MOR for 7 days
+2. Use unlimited inference
+3. MOR returns to your wallet
+
+**Contract addresses (Base):**
+- MOR Token: `0x7431aDa8a591C955a994a21710752EF9b882b8e3`
+- Diamond Contract: `0x6aBE1d282f72B474E54527D93b979A4f64d3030a`
 
 ## Docs
 
@@ -185,4 +197,4 @@ Everything happens on **Base** (Coinbase L2). You need:
 
 ## License
 
-UNLICENSED
+MIT - see [LICENSE](LICENSE)
