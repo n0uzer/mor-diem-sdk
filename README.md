@@ -49,9 +49,9 @@ const response = await sdk.complete('Hello')
 | Piece | What | Ports | Source |
 |-------|------|-------|--------|
 | **mor-diem-sdk** | This repo. Proxy + wallet + CLI | 8083 | `bun run proxy` |
-| **Morpheus Node** | Lumerin's binary. Connects to P2P network | 8082 (HTTP), 9081 (TCP) | [Download](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB) |
+| **Morpheus Consumer Node** | Lumerin's binary. Connects to P2P network | 8082 (HTTP), 9081 (TCP) | [Download](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB) |
 
-You run **both** on your machine. The SDK talks to the Morpheus Node HTTP API (8082), which talks to the P2P network.
+You run **both** on your machine. This is a **consumer node** (stakes MOR, uses inference) - not a provider node (runs AI models). The SDK talks to the node's HTTP API (8082), which routes requests through the P2P network to providers.
 
 **This SDK provides:**
 - **OpenAI-compatible proxy** - point any client at localhost:8083
