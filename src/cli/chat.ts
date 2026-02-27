@@ -745,17 +745,25 @@ async function refreshWalletBalance(state: ChatState): Promise<void> {
 				// Ignore
 			}
 
-			const sessionContent = activeSessions.map((s) => {
+			// Sort by time remaining (soonest expiring first)
+			const sortedSessions = [...activeSessions].sort((a, b) => a.EndsAt - b.EndsAt)
+
+			// Format: fixed columns first, then model name
+			// "6d 14h  1.92  model-name"
+			const sessionContent = sortedSessions.map((s) => {
 				const remaining = Math.max(0, s.EndsAt - Date.now() / 1000)
 				const days = Math.floor(remaining / 86400)
 				const hours = Math.floor((remaining % 86400) / 3600)
-				const timeStr = days > 0 ? `${days}d ${hours}h` : `${hours}h`
+				const timeStr = `${days}d ${String(hours).padStart(2)}h`
 				const stakeMor = (Number(s.Stake) / 1e18).toFixed(2)
-				// Show model name if we can look it up, otherwise show shortened ID
 				const modelName = modelMap[s.ModelAgentId] || s.ModelAgentId?.slice(0, 10) || 'unknown'
-				return `${c.green}${modelName.padEnd(20)}${c.reset} ${c.yellow}${stakeMor} MOR${c.reset}  ${c.dim}${timeStr} left${c.reset}`
+				// Fixed columns first: time (7), stake (5), then model
+				return `${c.dim}${timeStr}${c.reset}  ${c.yellow}${stakeMor.padStart(5)}${c.reset}  ${c.green}${modelName}${c.reset}`
 			})
-			console.log(`\n${box('Active Stakes (unlimited usage per session)', sessionContent)}`)
+			console.log(`\n${c.cyan}${c.bold}Active Stakes${c.reset} ${c.dim}(${sortedSessions.length} sessions, sorted by expiry)${c.reset}\n`)
+			for (const line of sessionContent) {
+				console.log(`  ${line}`)
+			}
 		} else {
 			console.log(`\n${c.dim}No active stakes. Start chatting to open a session.${c.reset}`)
 		}
