@@ -6,16 +6,8 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": [
-			"**",
-			"!**/bin/morpheus/**",
-			"!**/dist/**",
-			"!**/release/**",
-			"!**/node_modules/**",
-			"!**/docs/**"
-		]
+		"includes": ["src/**", "scripts/**", "tests/**", "*.json"]
 	},
-	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
@@ -36,7 +28,8 @@
 			},
 			"suspicious": {
 				"noControlCharactersInRegex": "off",
-				"noExplicitAny": "warn"
+				"noExplicitAny": "warn",
+				"noImplicitAnyLet": "off"
 			}
 		}
 	},

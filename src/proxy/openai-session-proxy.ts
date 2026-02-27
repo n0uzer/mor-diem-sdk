@@ -1,16 +1,25 @@
 #!/usr/bin/env node
 /**
- * Morpheus → OpenAI-compatible proxy for OpenClaw
+ * OpenAI Session Proxy for Morpheus AI
  *
- * Translates standard OpenAI /v1/chat/completions requests into
- * Morpheus proxy-router calls with proper Basic auth + session/model headers.
+ * WHY THIS EXISTS:
+ * Morpheus Node requires hex model IDs, manual session management, and cookie auth.
+ * This proxy handles all of that so you can use any OpenAI client unchanged.
  *
- * Features:
- * - Auto-opens sessions on demand (lazy)
- * - Auto-renews sessions before expiry
- * - Maps model names to blockchain model IDs
- * - Health endpoint at GET /health
- * - Models endpoint at GET /v1/models (for OpenClaw discovery)
+ * WHAT IT DOES:
+ * 1. Model names → hex IDs ("kimi-k2.5" → "0xbb9e920d...")
+ * 2. Auto-opens staking sessions (calls /blockchain/models/{id}/session)
+ * 3. Auto-renews sessions before expiry
+ * 4. Handles cookie-based auth to Morpheus Node
+ *
+ * USAGE:
+ *   bun run proxy                    # Start on port 8083
+ *   curl localhost:8083/v1/models    # List available models
+ *   curl localhost:8083/health       # Health check
+ *
+ * REQUIRES:
+ *   - Morpheus Node running on port 9081 (bun run setup to download)
+ *   - MOR tokens on Base chain for staking
  */
 
 import fs from 'node:fs'
@@ -20,12 +29,9 @@ import path from 'node:path'
 // --- Configuration ---
 const PROXY_PORT = Number.parseInt(process.env.MORPHEUS_PROXY_PORT || '8083', 10)
 const ROUTER_URL = process.env.MORPHEUS_ROUTER_URL || 'http://localhost:9081'
-// Cookie path: check MORPHEUS_COOKIE_PATH, then local bin/morpheus/.cookie, then ~/morpheus/.cookie
+// Cookie path: Morpheus Node creates this file for auth
 const COOKIE_PATH =
-	process.env.MORPHEUS_COOKIE_PATH ||
-	(fs.existsSync(path.join(process.cwd(), 'bin/morpheus/.cookie'))
-		? path.join(process.cwd(), 'bin/morpheus/.cookie')
-		: path.join(process.env.HOME, 'morpheus/.cookie'))
+	process.env.MORPHEUS_COOKIE_PATH || path.join(process.env.HOME, '.morpheus/.cookie')
 const SESSION_DURATION = Number.parseInt(process.env.MORPHEUS_SESSION_DURATION || '604800', 10) // 7 days default
 const RENEW_BEFORE_SEC = Number.parseInt(process.env.MORPHEUS_RENEW_BEFORE || '3600', 10) // renew 1 hour before expiry
 const PROXY_API_KEY = process.env.MORPHEUS_PROXY_API_KEY || 'morpheus-local' // bearer token OpenClaw sends

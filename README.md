@@ -1,61 +1,73 @@
-# mor-diem-sdk
 
-**Developer tools for [Morpheus AI](https://mor.org).**
+<h2 align="center">mor-diem-sdk</h2>
 
-## What is this?
+<p align="center">
+  <strong>Stake MOR tokens, get AI. That's it.</strong>
+</p>
 
-Morpheus requires their [Morpheus Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) binary. Using it directly means dealing with hex model IDs and manual session management.
+<p align="center">
+  <img src="assets/mor-diem.png" alt="mor-diem-sdk" width="600">
+</p>
 
-**mor-diem-sdk provides:**
+## Why this exists
 
-| Component | What It Does |
-|-----------|--------------|
-| **Proxy** | Human model names (`kimi-k2.5` not `0xbb9e...`), auto session management |
-| **CLI** | Interactive chat, model testing, wallet setup |
-| **SDK** | TypeScript API for wallets, balances, inference |
-| **Setup script** | Downloads Morpheus Node for you |
+You want to use [Morpheus AI](https://mor.org). To do that, you stake MOR tokens on **Base** chain for a session (7 days, fully refundable).
+
+Morpheus's node requires hex model IDs, manual session management, and cookie auth. **mor-diem-sdk handles all of that** so you can just:
+
+```typescript
+const response = await sdk.complete('Hello')
+```
+
+**This is NOT:**
+- The Morpheus gateway (api.mor.org) - that's pay-per-use USD
+- The Lumerin router - that's the heavy 56MB binary
+- A consumer node - that's Morpheus infrastructure
+
+**This IS:**
+- A drop-in OpenAI-compatible proxy
+- Auto session/staking management
+- Wallet tools and CLI
 
 ## Quick Start
 
 ```bash
-# 1. Install
-bun install
+# 1. Clone and install
+git clone https://github.com/anthropics/mor-diem-sdk
+cd mor-diem-sdk && bun install
 
-# 2. Download Morpheus Node
+# 2. Download Morpheus Node (required, ~56MB)
 bun run setup
 
 # 3. Start Morpheus Node (separate terminal)
 ~/.morpheus/proxy-router
 
-# 4. Start mor-diem-sdk proxy
+# 4. Start the proxy
 bun run proxy
 
 # 5. Run CLI
 bun run cli
 ```
 
-## Architecture
+The CLI walks you through wallet setup. You need:
+- ETH on Base (for gas, ~$0.01)
+- MOR tokens (for staking, refundable after 7 days)
+
+## How it works
 
 ```
-Your App → mor-diem-sdk proxy (8083) → Morpheus Node (9081) → AI Providers
-                  ↓
-         - Model name mapping
-         - Auto session management
-         - Auth handling
-```
-
-**Morpheus Node:** Download with `bun run setup` or manually from [releases](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases).
-
----
-
-## CLI Commands
-
-```bash
-bun run cli              # Setup wizard + chat
-bun run cli chat         # Interactive chat
-bun run cli models       # List available models
-bun run cli wallet balance   # Check balances
-bun run cli complete "Hello" # Quick inference test
+Your App
+    ↓
+mor-diem-sdk proxy (:8083)
+  - Converts "kimi-k2.5" → hex model ID
+  - Auto-opens staking sessions
+  - Handles auth
+    ↓
+Morpheus Node (:9081)
+  - Connects to P2P network
+  - Routes to AI providers
+    ↓
+AI Response
 ```
 
 ## SDK Usage
@@ -67,12 +79,26 @@ const sdk = new MorDiemSDK({
   mnemonic: process.env.MOR_MNEMONIC,
 })
 
-const response = await sdk.complete('Hello')
+// Check balances
+const balances = await sdk.getBalances()
+console.log(`MOR: ${balances.morFormatted}`)
+
+// Chat
+const response = await sdk.complete('Explain quantum computing')
 ```
 
-## Model Status
+## CLI Commands
 
-**37 models available.** Recommended:
+```bash
+bun run cli              # Setup + chat
+bun run cli chat         # Chat
+bun run cli models       # List models
+bun run cli wallet balance
+```
+
+## Models
+
+37 models available. Recommended:
 
 | Model | Speed |
 |-------|-------|
@@ -81,27 +107,24 @@ const response = await sdk.complete('Hello')
 | `qwen3-coder-480b-a35b-instruct` | ~680ms |
 | `kimi-k2.5` | ~2s |
 
-Add `:web` suffix for web search variants.
-
 ## Configuration
 
 | Variable | Description |
 |----------|-------------|
-| `MOR_MNEMONIC` | BIP39 seed phrase |
-| `MOR_PRIVATE_KEY` | Private key (alternative) |
-| `MORPHEUS_ROUTER_URL` | Morpheus Node URL (default: `http://localhost:9081`) |
+| `MOR_MNEMONIC` | Your wallet seed phrase |
+| `MORPHEUS_ROUTER_URL` | Morpheus Node URL (default: localhost:9081) |
 
-## Documentation
+## Chain
 
-- [Architecture](docs/architecture.md)
+Everything happens on **Base** (Coinbase L2). You need:
+- ETH on Base for gas
+- MOR tokens on Base for staking
+
+## Docs
+
 - [Staking Guide](docs/staking.md)
+- [Architecture](docs/architecture.md)
 - [Troubleshooting](docs/troubleshooting.md)
-
-## Tests
-
-```bash
-bun test
-```
 
 ## License
 
