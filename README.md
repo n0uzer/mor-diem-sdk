@@ -9,9 +9,18 @@
   <img src="assets/mor-diem.png" alt="mor-diem-sdk" width="600">
 </p>
 
-<p align="center">
-  <img src="assets/screenshots/wallet-status.png" alt="Wallet status showing 50 active sessions" width="500">
-</p>
+<table>
+<tr>
+<td width="50%">
+<img src="assets/screenshots/wallet-status.png" alt="Wallet status" width="100%">
+<p align="center"><em>50 active sessions, 193 MOR staked</em></p>
+</td>
+<td width="50%">
+<img src="assets/screenshots/start-chat.png" alt="Model selection" width="100%">
+<p align="center"><em>37 models with stake indicators</em></p>
+</td>
+</tr>
+</table>
 
 ## Why this exists
 
@@ -101,10 +110,6 @@ bun run chat
 **That's it.** The CLI walks you through model selection. You need:
 - ETH on Base (for gas, ~$0.01)
 - MOR tokens (for staking, ~2 MOR per model, refundable after 7 days)
-
-<p align="center">
-  <img src="assets/screenshots/start-chat.png" alt="Model selection showing 37 available models" width="400">
-</p>
 
 **What `bun run start` does:**
 1. Starts Morpheus Node (background, creates cookie)
@@ -201,7 +206,7 @@ Everything happens on **Base** (Coinbase L2, chain ID 8453).
 3. MOR returns to your wallet
 
 <p align="center">
-  <img src="assets/screenshots/active-stakes.png" alt="50 active staking sessions sorted by expiry" width="400">
+  <img src="assets/screenshots/active-stakes.png" alt="50 active staking sessions sorted by expiry" width="500">
   <br>
   <em>50 active sessions, sorted by time remaining</em>
 </p>
