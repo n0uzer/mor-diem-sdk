@@ -853,15 +853,10 @@ async function showWalletMenu(rl: readline.Interface, state: ChatState): Promise
 						const llmModels = data.models.filter((m) => m.ModelType === 'LLM')
 						const otherModels = data.models.filter((m) => m.ModelType !== 'LLM')
 
-						const modelContent = llmModels.slice(0, 15).map((m) => {
+						const modelContent = llmModels.map((m) => {
 							const tags = m.Tags?.slice(0, 3).join(', ') || ''
 							return `${c.green}${m.Name.padEnd(30)}${c.reset} ${c.dim}${tags}${c.reset}`
 						})
-						if (llmModels.length > 15) {
-							modelContent.push(
-								`${c.dim}... and ${llmModels.length - 15} more LLM models${c.reset}`,
-							)
-						}
 						console.log(`\n${box(`LLM Models (${llmModels.length})`, modelContent)}`)
 
 						if (otherModels.length > 0) {
