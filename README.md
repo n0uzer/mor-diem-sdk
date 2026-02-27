@@ -29,9 +29,14 @@ Morpheus gives you decentralized AI inference in exchange for staking MOR tokens
 | What | Without SDK | With SDK |
 |------|-------------|----------|
 | Model IDs | Hex strings like `0xbb9e920d...` | Human names like `kimi-k2.5` |
-| Sessions | Manual open, track expiry, renew | Auto-open on first request, auto-renew |
-| Auth | Read `.cookie` file, Basic auth, handle stale cookies | Automatic |
-| API | Morpheus-specific format | OpenAI-compatible (`localhost:8083`) |
+| Sessions | Manual open, track expiry, renew | Auto-open on first request, auto-renew before expiry |
+| Staking | Check balance, approve, deposit manually | Auto-stake if model not ready |
+| Auth | Read `.cookie` file, Basic auth, retry stale | Automatic with retry |
+| Streaming | Handle chunks, parse SSE | Word-wrapped, formatted output |
+| Node setup | Download binary, configure, manage process | `bun run setup` and `bun run start` |
+| Wallet | Call contract methods directly | Balance, approvals, network stats built-in |
+| Models | Query chain for registry | List all 37 with stake status indicators |
+| API format | Morpheus-specific | OpenAI-compatible (`localhost:8083`) |
 
 Just:
 
