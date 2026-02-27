@@ -14,7 +14,7 @@ const MORPHEUS_DIR = join(process.cwd(), 'bin', 'morpheus')
 const BINARY_PATH = join(MORPHEUS_DIR, 'proxy-router')
 const COOKIE_PATH = join(MORPHEUS_DIR, '.cookie')
 
-async function waitForHealth(url: string, name: string, maxWait = 30000): Promise<boolean> {
+async function waitForHealth(url: string, _name: string, maxWait = 30000): Promise<boolean> {
 	const start = Date.now()
 	while (Date.now() - start < maxWait) {
 		try {
