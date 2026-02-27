@@ -24,13 +24,14 @@
 
 ## Why this exists
 
-Morpheus gives you decentralized AI inference for staking MOR tokens (fully refundable). This SDK makes it simple:
+Morpheus gives you decentralized AI inference in exchange for staking MOR tokens (fully refundable after 7 days). This SDK makes integrating Morpheus into your app easy by handling all the management tasks:
 
-- **Human-readable model names** - use `kimi-k2.5` instead of `0xbb9e920d...`
-- **Auto-staking** - first request opens a session automatically
-- **Auto-renewal** - sessions renew before expiry
-- **Cookie auth** - handled automatically, retries on stale cookies
-- **OpenAI-compatible** - point any client at `localhost:8083`
+| What | Without SDK | With SDK |
+|------|-------------|----------|
+| Model IDs | Hex strings like `0xbb9e920d...` | Human names like `kimi-k2.5` |
+| Sessions | Manual open, track expiry, renew | Auto-open on first request, auto-renew |
+| Auth | Read `.cookie` file, Basic auth, handle stale cookies | Automatic |
+| API | Morpheus-specific format | OpenAI-compatible (`localhost:8083`) |
 
 Just:
 
