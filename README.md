@@ -96,6 +96,13 @@ flowchart TD
         B --> C["Morpheus Node :9081<br/>(downloaded binary)"]
     end
     C --> D["P2P Network → AI Providers"]
+
+    B -.- B1["• Converts 'kimi-k2.5' → hex model ID"]
+    B -.- B2["• Auto-opens staking sessions"]
+    B -.- B3["• Handles cookie auth"]
+
+    C -.- C1["• Connects to P2P network"]
+    C -.- C2["• Routes to AI providers"]
 ```
 
 ## SDK Usage
