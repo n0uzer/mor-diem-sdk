@@ -148,12 +148,17 @@ function formatTokens(tokens: number): string {
 
 const LEARN_CONTENT = {
 	overview: `
-${c.cyan}${c.bold}MOR DIEM SDK${c.reset}
-${c.dim}Morpheus Decentralized Inference SDK${c.reset}
+${c.cyan}${c.bold}mor-diem-sdk${c.reset}
+${c.dim}SDK for the Morpheus AI network${c.reset}
 
-MOR DIEM provides access to decentralized AI inference through
-the Morpheus network. Instead of paying per-token like traditional
-APIs, you ${c.green}deposit MOR tokens${c.reset} to unlock inference sessions.
+This SDK simplifies access to Morpheus decentralized AI inference.
+Instead of paying per-token like traditional APIs, you ${c.green}deposit
+MOR tokens${c.reset} to unlock inference sessions.
+
+${c.yellow}Why "diem"?${c.reset}
+  The name is inspired by Venice's "diem" concept - stake tokens,
+  get AI access, get tokens back. Morpheus works similarly but
+  with its own mechanics. We just liked the name.
 
 ${c.yellow}Key Differences from Traditional APIs:${c.reset}
   • No per-token billing - deposit once, use unlimited
@@ -162,7 +167,7 @@ ${c.yellow}Key Differences from Traditional APIs:${c.reset}
   • Decentralized - no single point of failure
 
 ${c.cyan}Architecture:${c.reset}
-  Your App → MOR DIEM SDK → morpheus-proxy → blockchain → AI providers
+  Your App → mor-diem-sdk → Morpheus Node → P2P network → AI providers
 `,
 	staking: `
 ${c.cyan}${c.bold}How MOR Staking Works${c.reset}
@@ -200,33 +205,6 @@ ${c.yellow}Usage Limits (Pro-Rata Model):${c.reset}
 ${c.cyan}Your MOR is DEPOSITED, not SPENT.${c.reset}
 Tokens are locked temporarily, then returned automatically.
 Use /budget to check network compute budget.
-`,
-	diem: `
-${c.cyan}${c.bold}What is MOR DIEM?${c.reset}
-
-DIEM = ${c.green}Decentralized Inference Execution Model${c.reset}
-
-MOR DIEM is like an ${c.green}annuity for AI access${c.reset}:
-  • You own the MOR tokens
-  • They generate inference access
-  • You keep the principal
-
-${c.yellow}Core Concepts:${c.reset}
-  • ${c.green}Sessions${c.reset} - Time-bound access windows (7 days default)
-  • ${c.green}Deposits${c.reset} - MOR tokens locked as refundable collateral
-  • ${c.green}Epochs${c.reset} - Network coordination periods
-  • ${c.green}Providers${c.reset} - Decentralized compute nodes
-
-${c.yellow}The Economic Model:${c.reset}
-
-  ┌─────────────────────────────────────────────────────────┐
-  │  Traditional API:  Pay $$ → Use → $$ is gone            │
-  │                                                         │
-  │  MOR DIEM:         Deposit MOR → Use → MOR returned     │
-  │                    (you keep your tokens)               │
-  └─────────────────────────────────────────────────────────┘
-
-${c.cyan}Your MOR generates access, then comes back to you.${c.reset}
 `,
 	epochs: `
 ${c.cyan}${c.bold}How Epochs Work${c.reset}
@@ -1097,15 +1075,12 @@ async function showLearnMenu(rl: readline.Interface): Promise<void> {
 		new Promise((resolve) => rl.question(prompt, resolve))
 
 	while (true) {
-		console.log(`\n${c.cyan}${c.bold}Learn About MOR${c.reset}\n`)
-		console.log(`  ${c.dim}1.${c.reset} ${c.green}Overview${c.reset}      - What is MOR DIEM?`)
+		console.log(`\n${c.cyan}${c.bold}Learn About Morpheus${c.reset}\n`)
+		console.log(`  ${c.dim}1.${c.reset} ${c.green}Overview${c.reset}      - What is this SDK?`)
 		console.log(`  ${c.dim}2.${c.reset} ${c.green}Staking${c.reset}       - How MOR staking works`)
-		console.log(
-			`  ${c.dim}3.${c.reset} ${c.green}DIEM${c.reset}          - The decentralized inference model`,
-		)
-		console.log(`  ${c.dim}4.${c.reset} ${c.green}Epochs${c.reset}        - Network coordination`)
-		console.log(`  ${c.dim}5.${c.reset} ${c.green}Wallet${c.reset}        - Setup & security`)
-		console.log(`  ${c.dim}6.${c.reset} ${c.green}Models${c.reset}        - Available AI models`)
+		console.log(`  ${c.dim}3.${c.reset} ${c.green}Epochs${c.reset}        - Network coordination`)
+		console.log(`  ${c.dim}4.${c.reset} ${c.green}Wallet${c.reset}        - Setup & security`)
+		console.log(`  ${c.dim}5.${c.reset} ${c.green}Models${c.reset}        - Available AI models`)
 		console.log('')
 		console.log(`  ${c.dim}0.${c.reset} Back to chat`)
 
@@ -1122,15 +1097,12 @@ async function showLearnMenu(rl: readline.Interface): Promise<void> {
 				console.log(LEARN_CONTENT.staking)
 				break
 			case 3:
-				console.log(LEARN_CONTENT.diem)
-				break
-			case 4:
 				console.log(LEARN_CONTENT.epochs)
 				break
-			case 5:
+			case 4:
 				console.log(LEARN_CONTENT.wallet)
 				break
-			case 6:
+			case 5:
 				console.log(LEARN_CONTENT.models)
 				break
 			default:
