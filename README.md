@@ -10,14 +10,14 @@
 </p>
 
 <table>
-<tr>
+<tr valign="top">
 <td width="50%">
 <img src="assets/screenshots/wallet-status.png" alt="Wallet status" width="100%">
-<p align="center"><em>50 active sessions, 193 MOR staked</em></p>
+<p align="center"><em>Wallet + network stats</em></p>
 </td>
 <td width="50%">
-<img src="assets/screenshots/start-chat.png" alt="Model selection" width="100%">
-<p align="center"><em>37 models with stake indicators</em></p>
+<img src="assets/screenshots/active-stakes.png" alt="Active stakes" width="100%">
+<p align="center"><em>50 active sessions</em></p>
 </td>
 </tr>
 </table>
@@ -204,12 +204,6 @@ Everything happens on **Base** (Coinbase L2, chain ID 8453).
 1. Lock MOR for 7 days
 2. Use unlimited inference
 3. MOR returns to your wallet
-
-<p align="center">
-  <img src="assets/screenshots/active-stakes.png" alt="50 active staking sessions sorted by expiry" width="500">
-  <br>
-  <em>50 active sessions, sorted by time remaining</em>
-</p>
 
 **Contract addresses (Base):**
 - MOR Token: `0x7431aDa8a591C955a994a21710752EF9b882b8e3`
