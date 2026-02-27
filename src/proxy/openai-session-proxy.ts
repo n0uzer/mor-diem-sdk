@@ -11,6 +11,7 @@
  * 2. Auto-opens staking sessions (calls /blockchain/models/{id}/session)
  * 3. Auto-renews sessions before expiry
  * 4. Handles cookie-based auth to Morpheus Node
+ * 5. Auto-detects stale cookies and retries with fresh auth
  *
  * USAGE:
  *   bun run proxy                    # Start on port 8083
@@ -102,17 +103,38 @@ async function refreshModelMap() {
 
 // --- State ---
 const sessions = new Map() // modelId -> { sessionId, expiresAt }
+let cachedAuth = null // cached auth header
+let lastCookieMtime = 0 // track cookie file changes
 
 // --- Helpers ---
 
-function getBasicAuth() {
+function getBasicAuth(forceRefresh = false) {
 	try {
-		const cookie = fs.readFileSync(COOKIE_PATH, 'utf-8').trim()
-		return `Basic ${Buffer.from(cookie).toString('base64')}`
+		const stats = fs.statSync(COOKIE_PATH)
+		const mtime = stats.mtimeMs
+
+		// Re-read cookie if file changed or forced refresh
+		if (forceRefresh || !cachedAuth || mtime !== lastCookieMtime) {
+			const cookie = fs.readFileSync(COOKIE_PATH, 'utf-8').trim()
+			cachedAuth = `Basic ${Buffer.from(cookie).toString('base64')}`
+			lastCookieMtime = mtime
+			if (forceRefresh) {
+				console.log('[morpheus-proxy] Cookie refreshed from file')
+			}
+		}
+		return cachedAuth
 	} catch (e) {
 		console.error(`[morpheus-proxy] Failed to read cookie file: ${e.message}`)
 		return null
 	}
+}
+
+// Force refresh cookie and clear all sessions (used on auth errors)
+function invalidateAuth() {
+	cachedAuth = null
+	lastCookieMtime = 0
+	sessions.clear()
+	console.log('[morpheus-proxy] Auth invalidated - will re-read cookie on next request')
 }
 
 function routerFetch(method, urlPath, body = null, extraHeaders = {}) {
@@ -301,6 +323,33 @@ function isSessionError(status, bodyStr) {
 	return false
 }
 
+// Check if error is a stale cookie / auth error
+function isAuthError(bodyStr) {
+	const lower = bodyStr.toLowerCase()
+	return lower.includes('invalid basic auth') || lower.includes('unauthorized')
+}
+
+// Translate raw Morpheus errors to friendlier, actionable messages
+function friendlyError(rawError) {
+	const lower = rawError.toLowerCase()
+
+	if (lower.includes('invalid basic auth')) {
+		return 'Stale cookie - restart Morpheus Node to regenerate. See: pkill -f proxy-router && rm ~/.morpheus/.cookie && ~/.morpheus/proxy-router'
+	}
+	if (lower.includes('no provider')) {
+		return 'No provider available for this model. The provider may be offline or overloaded. Try again later or try a different model.'
+	}
+	if (lower.includes('session') && lower.includes('not found')) {
+		return 'Session expired or not found. The proxy will auto-retry with a fresh session.'
+	}
+	if (lower.includes('insufficient') || lower.includes('balance')) {
+		return 'Insufficient MOR balance for staking. Check your wallet balance with: bun run cli wallet balance'
+	}
+
+	// Return original if no translation
+	return rawError
+}
+
 async function handleChatCompletions(_req, res, body) {
 	let parsed
 	try {
@@ -372,8 +421,16 @@ async function handleChatCompletions(_req, res, body) {
 			return
 		}
 
+		// If it's an auth error (stale cookie), invalidate and retry
+		if (isAuthError(bodyStr)) {
+			console.log('[morpheus-proxy] Auth error detected - refreshing cookie and retrying')
+			invalidateAuth()
+			getBasicAuth(true) // force re-read cookie file
+			attempt1Error = 'auth_stale'
+			// Fall through to retry below
+		}
 		// If it's a session error, we can retry with a fresh session
-		if (isSessionError(result.status, bodyStr)) {
+		else if (isSessionError(result.status, bodyStr)) {
 			console.log(
 				`[morpheus-proxy] Session error detected (${result.status}), will retry with new session`,
 			)
@@ -388,7 +445,7 @@ async function handleChatCompletions(_req, res, body) {
 			return oaiError(
 				res,
 				result.status >= 500 ? 502 : result.status,
-				`Morpheus inference error: ${bodyStr.substring(0, 500)}`,
+				`Morpheus inference error: ${friendlyError(bodyStr.substring(0, 500))}`,
 				'server_error',
 				'morpheus_inference_error',
 			)
@@ -455,7 +512,7 @@ async function handleChatCompletions(_req, res, body) {
 			return oaiError(
 				res,
 				502,
-				`Morpheus inference failed after retry: ${bodyStr.substring(0, 500)}`,
+				`Morpheus inference failed after retry: ${friendlyError(bodyStr.substring(0, 500))}`,
 				'server_error',
 				'morpheus_inference_error',
 			)

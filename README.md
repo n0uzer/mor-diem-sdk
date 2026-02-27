@@ -31,6 +31,7 @@ You run **both** on your machine. The SDK talks to the Morpheus Node, which talk
 **This SDK provides:**
 - OpenAI-compatible proxy (point any client at localhost:8083)
 - Auto session/staking management (open, renew, track expiry)
+- Auto cookie refresh (detects stale auth, re-reads cookie, retries)
 - Wallet SDK (create, import, check balances, stake MOR)
 - Model discovery (list available models, check stake requirements)
 - CLI for setup and testing
@@ -59,7 +60,7 @@ We liked the "diem" concept: stake → access → refund. Morpheus works differe
 | Sessions | Manually call `/blockchain/models/{id}/session` | Auto-opens on first request |
 | Session expiry | Track expiry, manually renew | Auto-renews before expiry |
 | Auth cookie | Read `.cookie` file, do Basic auth | Handled automatically |
-| Stale cookie | Restart node, regenerate cookie | See [troubleshooting](docs/troubleshooting.md) |
+| Stale cookie | Restart node, regenerate cookie | **Auto-detects and retries** |
 
 **Status endpoint:** `GET /health` shows active sessions and their remaining time.
 
