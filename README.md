@@ -67,19 +67,18 @@ The CLI walks you through wallet setup. You need:
 
 ## How it works
 
-```
-Your App
-    ↓
-mor-diem-sdk proxy (:8083)
-  - Converts "kimi-k2.5" → hex model ID
-  - Auto-opens staking sessions
-  - Handles auth
-    ↓
-Morpheus Node (:9081)
-  - Connects to P2P network
-  - Routes to AI providers
-    ↓
-AI Response
+```mermaid
+flowchart TD
+    A[Your App] --> B[mor-diem-sdk proxy :8083]
+    B --> C[Morpheus Node :9081]
+    C --> D[AI Providers]
+
+    B -.- B1["• Converts 'kimi-k2.5' → hex model ID"]
+    B -.- B2["• Auto-opens staking sessions"]
+    B -.- B3["• Handles cookie auth"]
+
+    C -.- C1["• Connects to P2P network"]
+    C -.- C2["• Routes to providers"]
 ```
 
 ## SDK Usage
@@ -112,8 +111,8 @@ bun run cli wallet balance
 
 37 models available. Recommended:
 
-| Model | Speed |
-|-------|-------|
+| Model | Time to First Token |
+|-------|---------------------|
 | `venice-uncensored` | ~350ms |
 | `mistral-31-24b` | ~500ms |
 | `qwen3-coder-480b-a35b-instruct` | ~680ms |
@@ -124,7 +123,7 @@ bun run cli wallet balance
 | Variable | Description |
 |----------|-------------|
 | `MOR_MNEMONIC` | Your wallet seed phrase |
-| `MORPHEUS_ROUTER_URL` | Morpheus Node URL (default: localhost:9081) |
+| `MORPHEUS_ROUTER_URL` | Where the Morpheus Node binary is running (default: localhost:9081) |
 
 ## Chain
 
