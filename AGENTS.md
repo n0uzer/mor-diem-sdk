@@ -7,12 +7,12 @@ See **[CLAUDE.md](./CLAUDE.md)** for full context.
 | Piece | Port | Repo | What It Does |
 |-------|------|------|--------------|
 | **OpenAI Translator** | 8083 | mor-diem-sdk (this repo) | Converts OpenAI API → Morpheus format |
-| **Morpheus Node** | 9081 | [Lumerin binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (external) | Connects to P2P, stakes MOR |
+| **Morpheus Node** | 8082 (HTTP), 9081 (TCP) | [Lumerin binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (external) | Connects to P2P, stakes MOR |
 
 ```
 ┌─────────────────────────────────┐
 │ Your App Process                │
-│  Your Code → SDK → Translator   │ ──→ Morpheus Node (9081) → AI Providers
+│  Your Code → SDK → Translator   │ ──→ Morpheus Node HTTP API (8082) → AI Providers
 │         (all mor-diem-sdk)      │            ↑
 └─────────────────────────────────┘      external binary (~56MB)
 ```
@@ -20,9 +20,12 @@ See **[CLAUDE.md](./CLAUDE.md)** for full context.
 ## Connection
 
 ```bash
-MORPHEUS_ROUTER_URL=http://localhost:9081  # default - run node locally
-MORPHEUS_ROUTER_URL=http://1.2.3.4:9081    # point to remote (if you have one)
+MORPHEUS_ROUTER_URL=http://localhost:8082  # HTTP API port (NOT 9081!)
 ```
+
+**IMPORTANT PORT CONFUSION:**
+- **8082** = HTTP API (what we connect to)
+- **9081** = TCP/P2P protocol (NOT HTTP - will fail if you hit it with HTTP)
 
 **No public Morpheus Node exists.** Users either:
 1. Download and run the [Morpheus Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) locally
@@ -32,6 +35,8 @@ MORPHEUS_ROUTER_URL=http://1.2.3.4:9081    # point to remote (if you have one)
 
 ```bash
 bun install
-bun run build
+bun run setup   # Download Morpheus Node to ./bin/morpheus/
+bun run start   # Start both node and proxy
+bun run stop    # Stop everything
 bun test
 ```
