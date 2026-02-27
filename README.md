@@ -21,20 +21,22 @@ const response = await sdk.complete('Hello')
 
 **Two pieces you run locally:**
 
-| Piece | What | Port | Source |
-|-------|------|------|--------|
+| Piece | What | Ports | Source |
+|-------|------|-------|--------|
 | **mor-diem-sdk** | This repo. Proxy + wallet + CLI | 8083 | `bun run proxy` |
-| **Morpheus Node** | Lumerin's binary. Connects to P2P network | 9081 | [Download](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB) |
+| **Morpheus Node** | Lumerin's binary. Connects to P2P network | 8082 (HTTP), 9081 (TCP) | [Download](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB) |
 
-You run **both** on your machine. The SDK talks to the Morpheus Node, which talks to the P2P network.
+You run **both** on your machine. The SDK talks to the Morpheus Node HTTP API (8082), which talks to the P2P network.
 
 **This SDK provides:**
-- OpenAI-compatible proxy (point any client at localhost:8083)
-- Auto session/staking management (open, renew, track expiry)
-- Auto cookie refresh (detects stale auth, re-reads cookie, retries)
-- Wallet SDK (create, import, check balances, stake MOR)
-- Model discovery (list available models, check stake requirements)
-- CLI for setup and testing
+- **OpenAI-compatible proxy** - point any client at localhost:8083
+- **Terminal chat with sessions** - interactive CLI with model selection, memory, streaming
+- **Auto-staking** - first request to a model opens a session automatically
+- **Auto session renewal** - renews before expiry, no manual management
+- **Auto cookie refresh** - detects stale auth, re-reads cookie, retries
+- **Wallet SDK** - generate wallets, check balances, approve MOR
+- **37 models** - list available, switch between, see stake requirements
+- **Test any model** - quick completion testing via CLI
 
 **Alternative:** Use [api.mor.org](https://api.mor.org) instead - pay USD, skip running anything locally.
 
@@ -71,22 +73,31 @@ We liked the "diem" concept: stake → access → refund. Morpheus works differe
 git clone https://github.com/anthropics/mor-diem-sdk
 cd mor-diem-sdk && bun install
 
-# 2. Download Morpheus Node (required, ~56MB)
+# 2. Configure your wallet (12 or 24 word seed phrase)
+cp .env.example .env
+# Edit .env and set MOR_MNEMONIC="your twelve word seed phrase here"
+
+# 3. Download Morpheus Node (~56MB binary)
 bun run setup
 
-# 3. Start Morpheus Node (separate terminal)
-~/.morpheus/proxy-router
+# 4. Start everything (Morpheus Node + proxy)
+bun run start
 
-# 4. Start the proxy
-bun run proxy
-
-# 5. Run CLI
-bun run cli
+# 5. Chat!
+bun run chat
 ```
 
-The CLI walks you through wallet setup. You need:
+**That's it.** The CLI walks you through model selection. You need:
 - ETH on Base (for gas, ~$0.01)
-- MOR tokens (for staking, refundable after 7 days)
+- MOR tokens (for staking, ~2 MOR per model, refundable after 7 days)
+
+**What `bun run start` does:**
+1. Starts Morpheus Node (background, creates cookie)
+2. Waits for node health
+3. Starts SDK proxy (port 8083)
+4. Reports available models
+
+**Stop everything:** `bun run stop`
 
 ## How it works
 
@@ -94,7 +105,7 @@ The CLI walks you through wallet setup. You need:
 flowchart TD
     subgraph local["YOUR MACHINE"]
         A[Your App] --> B["mor-diem-sdk proxy :8083"]
-        B --> C["Morpheus Node :9081<br/>(downloaded binary)"]
+        B --> C["Morpheus Node :8082<br/>(downloaded binary)"]
     end
     C --> D["P2P Network → AI Providers"]
 
@@ -105,6 +116,10 @@ flowchart TD
     C -.- C1["• Connects to P2P network"]
     C -.- C2["• Routes to AI providers"]
 ```
+
+**Proxy modes:**
+- **Standalone** (current) - run `bun run proxy` as its own process
+- **Embedded** - import into your app (same process, no HTTP overhead)
 
 ## SDK Usage
 
@@ -145,10 +160,16 @@ Models vary by provider availability, latency, and capability. We don't have eno
 
 ## Configuration
 
-| Variable | Description |
-|----------|-------------|
-| `MOR_MNEMONIC` | Your wallet seed phrase |
-| `MORPHEUS_ROUTER_URL` | Where the Morpheus Node binary is running (default: localhost:9081) |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MOR_MNEMONIC` | Your wallet seed phrase (12 or 24 words) | *required* |
+| `MORPHEUS_ROUTER_URL` | Morpheus Node HTTP API | `http://localhost:8082` |
+| `MORPHEUS_COOKIE_PATH` | Path to auth cookie | `./bin/morpheus/.cookie` |
+| `MORPHEUS_PROXY_PORT` | SDK proxy port | `8083` |
+
+**Note:** The Morpheus Node has two ports:
+- **8082** - HTTP API (what we connect to)
+- **9081** - TCP/P2P protocol (not HTTP)
 
 ## Chain
 

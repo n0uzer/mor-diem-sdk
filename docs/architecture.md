@@ -39,7 +39,8 @@ Currently it auto-starts on import. To embed, you'd refactor to export a `startP
 ```bash
 # .env
 MOR_MNEMONIC="your seed phrase"
-MORPHEUS_ROUTER_URL="http://localhost:9081"  # or remote
+MORPHEUS_ROUTER_URL="http://localhost:8082"  # HTTP API port, not 9081!
+MORPHEUS_COOKIE_PATH="/absolute/path/to/bin/morpheus/.cookie"
 ```
 
 ### Option B: CLI Config File
@@ -70,7 +71,7 @@ Download the [Morpheus Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Nod
 If someone hosts a router you trust:
 
 ```bash
-MORPHEUS_ROUTER_URL="https://router.example.com:9081"
+MORPHEUS_ROUTER_URL="https://router.example.com:8082"  # HTTP API port
 ```
 
 Note: Auth may be different for remote routers.
@@ -97,10 +98,13 @@ MOR_API_KEY="your-api-key"  # From app.mor.org
 
 ## Ports
 
-| Port | Component | Notes |
-|------|-----------|-------|
-| 8083 | mor-diem-sdk proxy | Your app connects here |
-| 9081 | Lumerin router | Proxy connects here |
+| Port | Component | Protocol | Notes |
+|------|-----------|----------|-------|
+| 8083 | mor-diem-sdk proxy | HTTP | Your app connects here (OpenAI-compatible) |
+| 8082 | Morpheus Node HTTP API | HTTP | Proxy connects here for all API calls |
+| 9081 | Morpheus Node P2P | TCP | Internal P2P protocol (not HTTP!) |
+
+**Important:** The proxy connects to 8082 (HTTP API), not 9081 (TCP). If you're manually setting `MORPHEUS_ROUTER_URL`, use `http://localhost:8082`.
 
 ## FAQ
 

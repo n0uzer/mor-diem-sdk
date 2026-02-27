@@ -11,7 +11,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { mnemonicToAccount } from 'viem/accounts'
 
-const MORPHEUS_DIR = join(homedir(), '.morpheus')
+// Use local ./bin/morpheus/ directory (keeps everything in the project)
+const MORPHEUS_DIR = join(process.cwd(), 'bin', 'morpheus')
 const BINARY_NAME = process.platform === 'win32' ? 'proxy-router.exe' : 'proxy-router'
 const BINARY_PATH = join(MORPHEUS_DIR, BINARY_NAME)
 const ENV_PATH = join(MORPHEUS_DIR, '.env')
@@ -200,20 +201,15 @@ async function main() {
 	console.log('\n✅ Morpheus Node installed!\n')
 	if (mnemonic) {
 		console.log('Next steps:')
-		console.log(`   1. Start the node: cd ${MORPHEUS_DIR} && ./proxy-router`)
-		console.log(`   2. Start the proxy: bun run proxy`)
-		console.log(`   3. Run the CLI: bun run cli\n`)
+		console.log('   1. Start everything: bun run start')
+		console.log('   2. Run the CLI: bun run cli\n')
 	} else {
 		console.log('Next steps:')
-		console.log(`   1. Set MOR_MNEMONIC in .env and re-run: bun run setup`)
+		console.log('   1. Set MOR_MNEMONIC in .env and re-run: bun run setup')
 		console.log(`      OR add WALLET_PRIVATE_KEY to ${ENV_PATH}`)
-		console.log(`   2. Start the node: cd ${MORPHEUS_DIR} && ./proxy-router`)
-		console.log(`   3. Start the proxy: bun run proxy\n`)
+		console.log('   2. Start everything: bun run start')
+		console.log('   3. Run the CLI: bun run cli\n')
 	}
-	console.log('The node will:')
-	console.log('   - Listen on port 9081')
-	console.log('   - Create .cookie for authentication')
-	console.log('   - Manage your MOR staking on Base\n')
 }
 
 main().catch((err) => {

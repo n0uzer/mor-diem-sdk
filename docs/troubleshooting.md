@@ -41,30 +41,28 @@ invalid basic auth provided
 - Node session expires
 - Cookie file gets corrupted
 
+**Good news:** The SDK auto-detects stale cookies and retries with a fresh read. If you still see this error:
+
 **Fix - regenerate the cookie:**
 ```bash
-# 1. Kill everything
-pkill -f proxy-router
+# 1. Stop everything
+bun run stop
 
 # 2. Delete stale cookie
-rm ~/.morpheus/.cookie
+rm ./bin/morpheus/.cookie
 
-# 3. Restart Morpheus Node (regenerates cookie)
-~/.morpheus/proxy-router &
-sleep 5
-
-# 4. Restart proxy
-bun run proxy &
+# 3. Restart everything
+bun run start
 ```
 
 **Verify cookie exists:**
 ```bash
-cat ~/.morpheus/.cookie
+cat ./bin/morpheus/.cookie
 ```
 
-Cookie location:
-1. `$MORPHEUS_COOKIE_PATH` (if set)
-2. `~/.morpheus/.cookie` (default)
+Cookie location (checked in order):
+1. `$MORPHEUS_COOKIE_PATH` (if set in .env)
+2. `./bin/morpheus/.cookie` (default for local setup)
 
 ---
 
@@ -74,15 +72,22 @@ Cause: Services not running.
 
 Fix:
 ```bash
-./morpheus-router &  # Port 9081
-bun run proxy &      # Port 8083
+bun run start  # Starts both Morpheus Node and proxy
+```
+
+Or manually:
+```bash
+cd bin/morpheus && ./proxy-router &  # HTTP on 8082, TCP on 9081
+bun run proxy &                      # Port 8083
 ```
 
 Verify:
 ```bash
-curl http://localhost:8083/health
-curl http://localhost:9081/swagger/
+curl http://localhost:8083/health    # SDK proxy
+curl http://localhost:8082/swagger/  # Morpheus Node HTTP API
 ```
+
+**Common mistake:** Trying to hit port 9081 with HTTP. Port 9081 is TCP/P2P, not HTTP. Use port 8082 for HTTP API.
 
 ---
 
@@ -113,11 +118,13 @@ curl http://localhost:9081/swagger/
 
 ## Ports
 
-| Port | Service |
-|------|---------|
-| 8083 | Proxy (OpenAI API) |
-| 9081 | Router (blockchain) |
-| 9082 | Router (inference) |
+| Port | Service | Protocol |
+|------|---------|----------|
+| 8083 | SDK Proxy (OpenAI-compatible) | HTTP |
+| 8082 | Morpheus Node HTTP API | HTTP |
+| 9081 | Morpheus Node P2P/TCP | TCP (not HTTP!) |
+
+**Critical:** The SDK connects to port 8082, not 9081. If you're getting "socket connection was closed unexpectedly", check your `MORPHEUS_ROUTER_URL` is set to `http://localhost:8082`.
 
 ---
 
@@ -132,7 +139,44 @@ MOR_WALLET_INDEX=0
 MOR_RPC_URL=https://mainnet.base.org
 MOR_BASE_URL=http://127.0.0.1:8083
 MORPHEUS_PROXY_PORT=8083
-MORPHEUS_ROUTER_URL=http://localhost:9081
+MORPHEUS_ROUTER_URL=http://localhost:8082  # HTTP API, not 9081!
+MORPHEUS_COOKIE_PATH=/absolute/path/to/bin/morpheus/.cookie
 MORPHEUS_SESSION_DURATION=604800
 MORPHEUS_RENEW_BEFORE=3600
+
+# Alchemy RPC (for better reliability)
+ALCHEMY_API_KEY=your-key-here
 ```
+
+**Note:** `MORPHEUS_COOKIE_PATH` must be an absolute path if you set it manually.
+
+---
+
+## Chain Confusion
+
+Morpheus runs on **Base** (chain ID 8453), not Arbitrum.
+
+If you see contract errors or "chain mismatch", check:
+1. Your wallet is on Base network
+2. MOR token address: `0x7431aDa8a591C955a994a21710752EF9b882b8e3` (Base)
+3. Diamond contract: `0x6aBE1d282f72B474E54527D93b979A4f64d3030a` (Base)
+
+---
+
+## Only 9 Models Showing (Should be 37)
+
+This usually means you're hitting the TCP port instead of HTTP.
+
+**Check:** `MORPHEUS_ROUTER_URL` should be `http://localhost:8082` not `http://localhost:9081`.
+
+The 8082 port is HTTP API, 9081 is TCP protocol.
+
+---
+
+## RPC Rate Limiting
+
+If you see "429 Too Many Requests" or rate limit errors, add an Alchemy key:
+
+1. Get free key from [alchemy.com](https://alchemy.com)
+2. Add to `.env`: `ALCHEMY_API_KEY=your-key`
+3. Setup will configure Morpheus Node to use it

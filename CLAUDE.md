@@ -8,12 +8,12 @@ There are TWO pieces. mor-diem-sdk is ONE of them:
 
 | Piece | Port | Code | What It Does |
 |-------|------|------|--------------|
-| **mor-diem-sdk** | 8083 | `src/proxy/morpheus-proxy.mjs` | Converts OpenAI API calls to Morpheus format |
-| **Morpheus Node** | 9081 | [proxy-router binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB download) | Connects to P2P network, stakes MOR, routes to providers |
+| **mor-diem-sdk** | 8083 | `src/proxy/openai-session-proxy.ts` | Converts OpenAI API calls to Morpheus format |
+| **Morpheus Node** | 8082 (HTTP), 9081 (TCP) | [proxy-router binary](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) (~56MB download) | Connects to P2P network, stakes MOR, routes to providers |
 
 **Standalone mode:**
 ```
-Your App → mor-diem-sdk (8083) → Morpheus Node (9081) → AI Providers
+Your App → mor-diem-sdk (8083) → Morpheus Node HTTP API (8082) → AI Providers
                 ↑                        ↑
          this repo               download from github.com/MorpheusAIs/Morpheus-Lumerin-Node
 ```
@@ -22,28 +22,33 @@ Your App → mor-diem-sdk (8083) → Morpheus Node (9081) → AI Providers
 ```
 ┌─────────────────────────────────┐
 │ Your App Process                │
-│  Your Code → mor-diem-sdk       │ ──→ Morpheus Node (9081) → AI Providers
+│  Your Code → mor-diem-sdk       │ ──→ Morpheus Node HTTP API (8082) → AI Providers
 │         (SDK + embedded proxy)  │            ↑
 └─────────────────────────────────┘      download from Morpheus
 ```
 
 **Connection is configured via env var:**
 ```bash
-MORPHEUS_ROUTER_URL=http://localhost:9081  # default - you run the node locally
-MORPHEUS_ROUTER_URL=http://1.2.3.4:9081    # point to remote node (if you have one)
+MORPHEUS_ROUTER_URL=http://localhost:8082  # HTTP API port (NOT 9081!)
 ```
 
+**IMPORTANT PORT CONFUSION:**
+- **8082** = HTTP API (what we connect to)
+- **9081** = TCP/P2P protocol (NOT HTTP!)
+
+If you hit 9081 with HTTP requests, you'll get "socket connection was closed unexpectedly".
+
 **Users must either:**
-1. **Download and run** the [Morpheus Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) locally on port 9081
+1. **Download and run** the [Morpheus Node](https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/releases) locally
 2. **Use api.mor.org** instead (pay USD, skip all of this)
 
 There is **no public Morpheus Node**. You run it yourself or use api.mor.org.
 
 ## Confusing Names
 
-Morpheus's binary is called `proxy-router`. This SDK's proxy is `morpheus-proxy.mjs`. Both have "proxy" in the name. Just remember:
+Morpheus's binary is called `proxy-router`. This SDK's proxy is `openai-session-proxy.ts`. Both have "proxy" in the name. Just remember:
 - **mor-diem-sdk (8083):** Translates API format
-- **Morpheus Node (9081):** Connects to the network
+- **Morpheus Node (8082):** HTTP API we connect to
 
 ## Stack
 
@@ -148,7 +153,7 @@ Update `EXPECTED_MAX_STAKE_PER_MODEL` in `tests/integration.test.ts` if prices c
 ## Architecture Deep Dive
 
 ```
-Your App → SDK → morpheus-proxy (:8083) → morpheus-router (:9081) → AI Providers
+Your App → SDK → openai-session-proxy (:8083) → morpheus-router (:8082) → AI Providers
                       ↓
                  .cookie file (auth)
 ```
@@ -157,28 +162,30 @@ Your App → SDK → morpheus-proxy (:8083) → morpheus-router (:9081) → AI P
 
 | Component | Port | Role |
 |-----------|------|------|
-| **morpheus-proxy** | 8083 | OpenAI-compatible API, session management, model mapping |
-| **morpheus-router** | 9081 | Blockchain ops, provider routing, staking sessions |
+| **openai-session-proxy** | 8083 | OpenAI-compatible API, session management, model mapping |
+| **morpheus-router HTTP** | 8082 | HTTP API for blockchain ops, provider routing, staking |
+| **morpheus-router TCP** | 9081 | P2P protocol (internal, not HTTP!) |
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/proxy/morpheus-proxy.mjs` | OpenAI-compatible proxy layer |
+| `src/proxy/openai-session-proxy.ts` | OpenAI-compatible proxy layer |
 | `src/client/index.ts` | MorpheusClient - makes API calls to proxy |
 | `src/index.ts` | MorDiemSDK - main entry point |
 | `src/cli/mor-diem.ts` | CLI entry point |
 
 ### Authentication Flow
 
-1. Morpheus Node creates `.cookie` file on first run
+1. Morpheus Node creates `.cookie` file on first run (in `./bin/morpheus/.cookie`)
 2. Proxy reads `.cookie` to authenticate with node
 3. Proxy uses Basic auth: `Authorization: Basic <base64(cookie)>`
 4. If `.cookie` missing/invalid → "invalid basic auth provided"
+5. **SDK auto-retries**: detects stale cookie, re-reads file, retries request
 
 **Cookie file locations (checked in order):**
-1. `$MORPHEUS_COOKIE_PATH` (env override)
-2. `~/.morpheus/.cookie` (user home)
+1. `$MORPHEUS_COOKIE_PATH` (env override, must be absolute path)
+2. `./bin/morpheus/.cookie` (local setup default)
 
 ### Error Handling Philosophy
 

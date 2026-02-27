@@ -19,7 +19,7 @@
  *   curl localhost:8083/health       # Health check
  *
  * REQUIRES:
- *   - Morpheus Node running on port 9081 (bun run setup to download)
+ *   - Morpheus Node HTTP API on port 8082 (bun run setup to download)
  *   - MOR tokens on Base chain for staking
  */
 
@@ -29,7 +29,7 @@ import path from 'node:path'
 
 // --- Configuration ---
 const PROXY_PORT = Number.parseInt(process.env.MORPHEUS_PROXY_PORT || '8083', 10)
-const ROUTER_URL = process.env.MORPHEUS_ROUTER_URL || 'http://localhost:9081'
+const ROUTER_URL = process.env.MORPHEUS_ROUTER_URL || 'http://localhost:8082'
 // Cookie path: Morpheus Node creates this file for auth
 const COOKIE_PATH =
 	process.env.MORPHEUS_COOKIE_PATH || path.join(process.env.HOME, '.morpheus/.cookie')
