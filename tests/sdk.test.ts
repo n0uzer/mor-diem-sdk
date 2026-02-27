@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { generateNewMnemonic, MorDiemSDK } from '../src/index'
+import { MorDiemSDK, generateNewMnemonic } from '../src/index'
 
 describe('SDK Initialization', () => {
 	const testMnemonic = 'test test test test test test test test test test test junk'

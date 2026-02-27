@@ -30,21 +30,41 @@ bun run cli wallet approve 10000000000000000000000
 
 ---
 
-## Auth Error
+## Auth Error (Stale Cookie)
 
 ```
 invalid basic auth provided
 ```
 
-Cause: Proxy can't read `.cookie` file.
+**This is the most common issue.** The cookie goes stale when:
+- Morpheus Node restarts
+- Node session expires
+- Cookie file gets corrupted
 
-Fix:
-1. Start Morpheus Node: `./morpheus-router &`
-2. Verify cookie exists: `cat ~/.morpheus/.cookie`
+**Fix - regenerate the cookie:**
+```bash
+# 1. Kill everything
+pkill -f proxy-router
 
-Cookie search order:
-1. `$MORPHEUS_COOKIE_PATH` (env override)
-2. `~/.morpheus/.cookie`
+# 2. Delete stale cookie
+rm ~/.morpheus/.cookie
+
+# 3. Restart Morpheus Node (regenerates cookie)
+~/.morpheus/proxy-router &
+sleep 5
+
+# 4. Restart proxy
+bun run proxy &
+```
+
+**Verify cookie exists:**
+```bash
+cat ~/.morpheus/.cookie
+```
+
+Cookie location:
+1. `$MORPHEUS_COOKIE_PATH` (if set)
+2. `~/.morpheus/.cookie` (default)
 
 ---
 

@@ -7,12 +7,7 @@
 	"bin": {
 		"mor-diem": "./release/cli/mor-diem.js"
 	},
-	"files": [
-		"release/",
-		"docs/",
-		"README.md",
-		"LICENSE"
-	],
+	"files": ["release/", "docs/", "README.md", "LICENSE"],
 	"scripts": {
 		"dev": "bun run src/index.ts",
 		"build": "bun build src/index.ts --outdir dist --target node",
@@ -43,16 +38,7 @@
 	"engines": {
 		"bun": ">=1.0.0"
 	},
-	"keywords": [
-		"morpheus",
-		"mor",
-		"diem",
-		"inference",
-		"ai",
-		"decentralized",
-		"blockchain",
-		"base"
-	],
+	"keywords": ["morpheus", "mor", "diem", "inference", "ai", "decentralized", "blockchain", "base"],
 	"license": "UNLICENSED",
 	"author": "@robertjchristian"
 }

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { AVAILABLE_MODELS, createP2PClient, MorpheusClient } from '../src/client/index'
+import { AVAILABLE_MODELS, MorpheusClient, createP2PClient } from '../src/client/index'
 
 describe('Client Initialization', () => {
 	test('creates P2P client with default config', () => {

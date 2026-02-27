@@ -29,6 +29,18 @@ const response = await sdk.complete('Hello')
 - Auto session/staking management
 - Wallet tools and CLI
 
+## Gotchas we handle
+
+| Problem | Without SDK | With SDK |
+|---------|-------------|----------|
+| Model IDs | Look up hex IDs like `0xbb9e920d...` | Use names like `kimi-k2.5` |
+| Sessions | Manually call `/blockchain/models/{id}/session` | Auto-opens on first request |
+| Session expiry | Track expiry, manually renew | Auto-renews before expiry |
+| Auth cookie | Read `.cookie` file, do Basic auth | Handled automatically |
+| Stale cookie | Restart node, regenerate cookie | See [troubleshooting](docs/troubleshooting.md) |
+
+**Status endpoint:** `GET /health` shows active sessions and their remaining time.
+
 ## Quick Start
 
 ```bash

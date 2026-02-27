@@ -112,16 +112,16 @@ export interface MorDiemSDKConfig {
 
 import { MorpheusClient, type MorpheusClientConfig } from './client/index.js'
 import {
-	approveMor as approveFunc,
 	type Balances,
 	type DerivedWallet,
+	type WalletConfig,
+	approveMor as approveFunc,
 	deriveWalletFromMnemonic,
 	getAccount as getAccountFunc,
 	getBalances as getBalancesFunc,
 	isValidMnemonic as isValidMnemonicFunc,
 	swapEthForMor as swapEthFunc,
 	swapUsdcForMor as swapUsdcFunc,
-	type WalletConfig,
 } from './wallet/wallet.js'
 
 // =============================================================================
