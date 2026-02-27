@@ -169,15 +169,10 @@ ${c.cyan}${c.bold}How MOR Staking Works${c.reset}
 
 ${c.yellow}Think: Refundable Deposit, Not Payment${c.reset}
 
-  ┌────────────────────────────────────────────────────────┐
-  │  This is NOT like paying for a subscription.           │
-  │                                                        │
-  │  Your MOR is a ${c.green}refundable security deposit${c.reset}.          │
-  │  Lock it → get access → get it back.                   │
-  │                                                        │
-  │  You ${c.bold}own${c.reset} your tokens the whole time.                  │
-  │  They generate access, then return to you.             │
-  └────────────────────────────────────────────────────────┘
+  This is NOT like paying for a subscription.
+  Your MOR is a ${c.green}refundable security deposit${c.reset}.
+  Lock it → get access → get it back.
+  You ${c.bold}own${c.reset} your tokens the whole time.
 
 ${c.yellow}One Session Per Model:${c.reset}
   Each AI model requires its ${c.bold}own session${c.reset} with its provider.
