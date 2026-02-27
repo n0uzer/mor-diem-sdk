@@ -255,30 +255,6 @@ ${c.yellow}Funding Your Wallet:${c.reset}
 ${c.red}NEVER commit your mnemonic or private key to git!${c.reset}
 ${c.red}NEVER share your seed phrase with anyone!${c.reset}
 `,
-	models: `
-${c.cyan}${c.bold}Available Models${c.reset}
-
-${c.yellow}Reasoning Models:${c.reset}
-  ${c.green}kimi-k2.5${c.reset}          - General reasoning (recommended)
-  ${c.green}kimi-k2.5:web${c.reset}      - Web search enabled
-  ${c.green}kimi-k2-thinking${c.reset}   - Extended reasoning with thinking
-
-${c.yellow}Fast Models:${c.reset}
-  ${c.green}glm-4.7-flash${c.reset}      - Quick responses, lower latency
-  ${c.green}glm-4.7${c.reset}            - Full GLM reasoning
-
-${c.yellow}Large Models:${c.reset}
-  ${c.green}qwen3-235b${c.reset}         - 235B params, multilingual
-  ${c.green}llama-3.3-70b${c.reset}      - Meta's Llama 3.3
-  ${c.green}gpt-oss-120b${c.reset}       - Open-source GPT variant
-
-${c.yellow}Context Windows:${c.reset}
-  All models support ${c.green}128k tokens${c.reset} context
-
-${c.yellow}Switching Models:${c.reset}
-  Use ${c.green}/model${c.reset} in chat to switch between models.
-  Memory is preserved when switching.
-`,
 }
 
 // =============================================================================
@@ -1080,7 +1056,8 @@ async function showLearnMenu(rl: readline.Interface): Promise<void> {
 		console.log(`  ${c.dim}2.${c.reset} ${c.green}Staking${c.reset}       - How MOR staking works`)
 		console.log(`  ${c.dim}3.${c.reset} ${c.green}Epochs${c.reset}        - Network coordination`)
 		console.log(`  ${c.dim}4.${c.reset} ${c.green}Wallet${c.reset}        - Setup & security`)
-		console.log(`  ${c.dim}5.${c.reset} ${c.green}Models${c.reset}        - Available AI models`)
+		console.log('')
+		console.log(`  ${c.dim}Use /models in chat to see all available models${c.reset}`)
 		console.log('')
 		console.log(`  ${c.dim}0.${c.reset} Back to chat`)
 
@@ -1101,9 +1078,6 @@ async function showLearnMenu(rl: readline.Interface): Promise<void> {
 				break
 			case 4:
 				console.log(LEARN_CONTENT.wallet)
-				break
-			case 5:
-				console.log(LEARN_CONTENT.models)
 				break
 			default:
 				console.log(`${c.yellow}Invalid selection.${c.reset}`)
