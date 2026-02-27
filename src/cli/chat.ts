@@ -19,6 +19,7 @@ import {
 	getBalances,
 	isValidMnemonic,
 } from '../wallet/wallet.js'
+import { ChatPrinter } from './chat-renderer.js'
 
 // =============================================================================
 // Cookie Auth Helper
@@ -637,7 +638,9 @@ async function refreshWalletBalance(state: ChatState): Promise<void> {
 		let providerCount = 0
 		try {
 			const [budgetRes, providersRes] = await Promise.all([
-				fetch(`${routerUrl}/blockchain/sessions/budget`, { headers: { Authorization: authHeader } }),
+				fetch(`${routerUrl}/blockchain/sessions/budget`, {
+					headers: { Authorization: authHeader },
+				}),
 				fetch(`${routerUrl}/blockchain/providers`, { headers: { Authorization: authHeader } }),
 			])
 			if (budgetRes.ok) {
@@ -653,7 +656,11 @@ async function refreshWalletBalance(state: ChatState): Promise<void> {
 		}
 
 		// Format number with commas
-		const fmt = (n: number, decimals = 2) => n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+		const fmt = (n: number, decimals = 2) =>
+			n.toLocaleString('en-US', {
+				minimumFractionDigits: decimals,
+				maximumFractionDigits: decimals,
+			})
 
 		const content = [
 			`${c.dim}Address:${c.reset}     ${shortAddr}`,
@@ -712,7 +719,9 @@ async function refreshWalletBalance(state: ChatState): Promise<void> {
 				// Fixed columns first: time (7), stake (5), then model
 				return `${c.dim}${timeStr}${c.reset}  ${c.yellow}${stakeMor.padStart(5)}${c.reset}  ${c.green}${modelName}${c.reset}`
 			})
-			console.log(`\n${c.cyan}${c.bold}Active Stakes${c.reset} ${c.dim}(${sortedSessions.length} sessions, sorted by expiry)${c.reset}\n`)
+			console.log(
+				`\n${c.cyan}${c.bold}Active Stakes${c.reset} ${c.dim}(${sortedSessions.length} sessions, sorted by expiry)${c.reset}\n`,
+			)
 			for (const line of sessionContent) {
 				console.log(`  ${line}`)
 			}
@@ -1093,8 +1102,6 @@ async function showLearnMenu(rl: readline.Interface): Promise<void> {
 
 async function streamResponse(client: MorpheusClient, state: ChatState): Promise<string> {
 	let fullContent = ''
-	let isFirstContent = true
-	let isFirstReasoning = true
 	let receivedFirstChunk = false
 
 	// Thinking animation with elapsed seconds
@@ -1116,6 +1123,9 @@ async function streamResponse(client: MorpheusClient, state: ChatState): Promise
 	updateSpinner()
 	const spinnerInterval = setInterval(updateSpinner, 80)
 
+	// Use ChatPrinter for proper word wrapping
+	const printer = new ChatPrinter(state.model.id, state.showReasoning)
+
 	try {
 		const stream = client.createChatCompletionStream({
 			model: state.model.id,
@@ -1131,34 +1141,26 @@ async function streamResponse(client: MorpheusClient, state: ChatState): Promise
 				receivedFirstChunk = true
 				clearInterval(spinnerInterval)
 				process.stdout.write(`\r${' '.repeat(40)}\r`) // Clear spinner line
-				process.stdout.write(`\n${c.blue}${state.model.id}${c.reset}: `)
 			}
+
 			const delta = chunk.choices[0]?.delta
 
 			if (delta?.reasoning_content) {
 				reasoningContent += delta.reasoning_content
-				// Only show reasoning if toggle is ON
-				if (state.showReasoning) {
-					if (isFirstReasoning) {
-						process.stdout.write(`\n${c.dim}${c.italic}[thinking] `)
-						isFirstReasoning = false
-					}
-					process.stdout.write(delta.reasoning_content)
-				}
+				printer.addReasoning(delta.reasoning_content)
 			}
 
 			if (delta?.content) {
-				if (state.showReasoning && !isFirstReasoning && isFirstContent) {
-					process.stdout.write(`${c.reset}\n\n${c.blue}${state.model.id}${c.reset}: `)
-				}
-				isFirstContent = false
-				process.stdout.write(delta.content)
 				fullContent += delta.content
+				printer.addContent(delta.content)
 			}
 		}
 
+		// Finalize output
+		printer.finish()
+
 		const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-		console.log('\n')
+		console.log('')
 
 		// Verbose output: show timing and token estimates
 		if (state.verbose) {
