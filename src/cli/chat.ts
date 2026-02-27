@@ -714,8 +714,7 @@ async function refreshWalletBalance(state: ChatState): Promise<void> {
 			`${c.yellow}Staked${c.reset}       ${fmt(stakedMor)} ${c.dim}(${activeSessions.length} active sessions)${c.reset}`,
 			`${c.cyan}Total${c.reset}        ${fmt(totalMor)} MOR`,
 			'',
-			`${c.dim}Allowance:${c.reset}   ${balances.isUnlimitedAllowance ? `${c.red}Unlimited (BAD!)${c.reset}` : `${fmt(Number(balances.morAllowance) / 1e18)} MOR`}`,
-			`${c.dim}             ↳ pre-approved MOR for staking (ERC20 approval)${c.reset}`,
+			`${c.dim}Allowance:${c.reset}   ${balances.isUnlimitedAllowance ? `${c.red}Unlimited (BAD!)${c.reset}` : `${fmt(Number(balances.morAllowance) / 1e18)} MOR`} ${c.dim}(approved for staking)${c.reset}`,
 		]
 
 		console.log(`\n${box('Wallet (Base Mainnet)', content)}`)
