@@ -53,6 +53,8 @@ const response = await sdk.complete('Hello')
 
 You run **both** on your machine. This is a **consumer node** (stakes MOR, uses inference) - not a provider node (runs AI models). The SDK talks to the node's HTTP API (8082), which routes requests through the P2P network to providers.
 
+> **Note:** The Morpheus node is a compiled Go binary - it runs as a separate process, not embedded in your app. The SDK/proxy can be embedded in your app, but the node is always a sidecar process (~56MB binary).
+
 **This SDK provides:**
 - **OpenAI-compatible proxy** - point any client at localhost:8083
 - **Terminal chat with sessions** - interactive CLI with model selection, memory, streaming
