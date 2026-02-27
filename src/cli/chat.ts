@@ -681,18 +681,49 @@ async function refreshWalletBalance(state: ChatState): Promise<void> {
 		const walletMor = Number(balances.mor) / 1e18
 		const walletEth = Number(balances.eth) / 1e18
 		const activeSessions = sessions.filter((s) => s.EndsAt > Date.now() / 1000)
+		const totalMor = stakedMor + walletMor
+
+		// Fetch network stats
+		let networkBudget = 0
+		let providerCount = 0
+		try {
+			const [budgetRes, providersRes] = await Promise.all([
+				fetch(`${routerUrl}/blockchain/sessions/budget`, { headers: { Authorization: authHeader } }),
+				fetch(`${routerUrl}/blockchain/providers`, { headers: { Authorization: authHeader } }),
+			])
+			if (budgetRes.ok) {
+				const data = (await budgetRes.json()) as { budget: string }
+				networkBudget = Number(data.budget) / 1e18
+			}
+			if (providersRes.ok) {
+				const data = (await providersRes.json()) as { providers: unknown[] }
+				providerCount = data.providers?.length || 0
+			}
+		} catch {
+			// Ignore network errors
+		}
 
 		const content = [
 			`${c.dim}Address:${c.reset}     ${shortAddr}`,
 			'',
 			`${c.green}ETH${c.reset}          ${walletEth.toFixed(4)}`,
 			`${c.green}MOR${c.reset}          ${walletMor.toFixed(2)} ${c.dim}(in wallet)${c.reset}`,
-			`${c.yellow}Staked${c.reset}       ${stakedMor.toFixed(2)} ${c.dim}(${activeSessions.length} sessions)${c.reset}`,
+			`${c.yellow}Staked${c.reset}       ${stakedMor.toFixed(2)} ${c.dim}(${activeSessions.length} active sessions)${c.reset}`,
+			`${c.cyan}Total${c.reset}        ${totalMor.toFixed(2)} MOR`,
 			'',
 			`${c.dim}Allowance:${c.reset}   ${balances.isUnlimitedAllowance ? `${c.red}Unlimited (BAD!)${c.reset}` : `${balances.morAllowanceFormatted} MOR`}`,
 		]
 
 		console.log(`\n${box('Wallet (Base Mainnet)', content)}`)
+
+		// Show network stats
+		if (networkBudget > 0 || providerCount > 0) {
+			const networkContent = [
+				`${c.dim}Daily Budget:${c.reset}  ${networkBudget.toFixed(0)} MOR ${c.dim}(network total)${c.reset}`,
+				`${c.dim}Providers:${c.reset}     ${providerCount} ${c.dim}active${c.reset}`,
+			]
+			console.log(`\n${box('Network', networkContent)}`)
+		}
 
 		// Show session details if any
 		if (activeSessions.length > 0) {
