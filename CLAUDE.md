@@ -97,6 +97,28 @@ Write clear, professional commit messages:
   - `fix session timeout handling for P2P mode`
   - `update MOR token contract address for mainnet`
 
+## Tag Guidelines
+
+Always use **annotated tags** for releases (not lightweight tags):
+
+```bash
+# Good - annotated tag with release notes
+git tag -a v0.2.0 -m "Release description
+
+- Feature 1
+- Feature 2
+- Bug fix"
+
+git push origin v0.2.0
+```
+
+```bash
+# Bad - lightweight tag (no metadata)
+git tag v0.2.0
+```
+
+Annotated tags store author, date, and message - shows up properly on GitHub Releases.
+
 ## Testing
 
 ```bash
