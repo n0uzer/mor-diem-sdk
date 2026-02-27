@@ -134,14 +134,14 @@ bun run cli wallet balance
 
 ## Models
 
-37 models available. Recommended:
+37 models currently on-chain. List them:
 
-| Model | Time to First Token |
-|-------|---------------------|
-| `venice-uncensored` | ~350ms |
-| `mistral-31-24b` | ~500ms |
-| `qwen3-coder-480b-a35b-instruct` | ~680ms |
-| `kimi-k2.5` | ~2s |
+```bash
+bun run cli models       # CLI
+curl localhost:8083/v1/models  # API
+```
+
+Models vary by provider availability, latency, and capability. We don't have enough data to recommend specific models - test with your use case.
 
 ## Configuration
 
