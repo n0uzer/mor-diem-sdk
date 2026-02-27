@@ -183,7 +183,7 @@ bun run cli models       # CLI
 curl localhost:8083/v1/models  # API
 ```
 
-Models vary by provider availability, latency, and capability. We don't have enough data to recommend specific models - test with your use case.
+Models vary by provider availability, latency, and capability - test with your use case.
 
 ## Configuration
 
