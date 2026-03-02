@@ -4,6 +4,19 @@
  *
  * Downloads the proxy-router binary from Morpheus releases.
  * This is required to run mor-diem-sdk locally (staking MOR, not using api.mor.org).
+ *
+ * ============================================================================
+ * TODO: UPSTREAM PR PENDING
+ * ============================================================================
+ * PR #637: Concurrent safety improvements (SIGSEGV fixes + concurrency limiter)
+ * https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/pull/637
+ *
+ * Until merged, you can use our fork for testing:
+ *   1. Build: cd path/to/Morpheus-Lumerin-Node/proxy-router && go build ./cmd/main.go -o proxy-router
+ *   2. Copy: cp proxy-router /path/to/mor-diem-sdk/bin/morpheus/proxy-router
+ *
+ * Once PR merges, delete this comment - upstream releases will include the fix.
+ * ============================================================================
  */
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'

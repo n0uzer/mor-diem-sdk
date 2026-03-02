@@ -2,6 +2,19 @@
 
 > Agent context for mor-diem-sdk.
 
+## ⚠️ Upstream PR Pending
+
+**PR #637**: Concurrent safety improvements for proxy-router
+https://github.com/MorpheusAIs/Morpheus-Lumerin-Node/pull/637
+
+Fixes:
+- SIGSEGV from concurrent map writes (crashes at 20+ concurrent requests)
+- Missing mutex on streaming session manager
+- Logic bug in chat metadata initialization
+- Configurable concurrency limiter (default 100, env: `PROXY_MAX_CONCURRENT`)
+
+Until merged, use our fork for testing: `github.com/robertjchristian/Morpheus-Lumerin-Node`
+
 ## Critical: The Two Pieces
 
 There are TWO pieces. mor-diem-sdk is ONE of them:
