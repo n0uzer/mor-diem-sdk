@@ -102,9 +102,104 @@ async function refreshModelMap() {
 }
 
 // --- State ---
-const sessions = new Map() // modelId -> { sessionId, expiresAt }
+const sessions = new Map() // modelId -> { sessionId, expiresAt } (legacy single-session)
+const sessionPools = new Map() // modelId -> [{ sessionId, expiresAt, inUse }] (multi-session pool)
 let cachedAuth = null // cached auth header
 let lastCookieMtime = 0 // track cookie file changes
+const WALLET_ADDRESS = process.env.MORPHEUS_WALLET_ADDRESS || ''
+
+// --- Session Pool Helpers ---
+
+function getPoolStats(modelId) {
+	const pool = sessionPools.get(modelId) || []
+	const now = Date.now()
+	const valid = pool.filter(s => now < s.expiresAt)
+	return {
+		total: valid.length,
+		available: valid.filter(s => !s.inUse).length,
+		inUse: valid.filter(s => s.inUse).length
+	}
+}
+
+function claimSessionFromPool(modelId) {
+	const pool = sessionPools.get(modelId)
+	if (!pool) return null
+	const now = Date.now()
+	for (const entry of pool) {
+		if (!entry.inUse && now < entry.expiresAt) {
+			entry.inUse = true
+			return {
+				sessionId: entry.sessionId,
+				release: () => { entry.inUse = false }
+			}
+		}
+	}
+	return null // All sessions in use or expired
+}
+
+async function preloadExistingSessions() {
+	if (!WALLET_ADDRESS) {
+		console.log('[morpheus-proxy] No MORPHEUS_WALLET_ADDRESS set, skipping session preload')
+		return
+	}
+	console.log(`[morpheus-proxy] Wallet: ${WALLET_ADDRESS}`)
+
+	try {
+		const res = await routerFetch('GET', `/blockchain/sessions/user?user=${WALLET_ADDRESS}&limit=200`)
+		if (res.status !== 200) {
+			console.warn(`[morpheus-proxy] Failed to fetch existing sessions: ${res.status}`)
+			return
+		}
+		const data = JSON.parse(res.body.toString())
+		const existingSessions = data.sessions || data || []
+
+		let totalLoaded = 0
+		const modelCounts = {}
+
+		for (const s of existingSessions) {
+			// Skip closed sessions
+			if (s.ClosedAt && s.ClosedAt !== '0' && s.ClosedAt !== 0) continue
+
+			const modelId = s.ModelAgentId || s.modelAgentId
+			const sessionId = s.Id || s.id
+			if (!modelId || !sessionId) continue
+
+			// Calculate expiry from EndsAt or default to 7 days from now
+			let expiresAt
+			if (s.EndsAt && s.EndsAt !== '0') {
+				expiresAt = Number(s.EndsAt) * 1000 - (RENEW_BEFORE_SEC * 1000)
+			} else {
+				expiresAt = Date.now() + (SESSION_DURATION - RENEW_BEFORE_SEC) * 1000
+			}
+
+			// Skip if already expired
+			if (Date.now() >= expiresAt) continue
+
+			// Add to pool
+			if (!sessionPools.has(modelId)) {
+				sessionPools.set(modelId, [])
+			}
+			sessionPools.get(modelId).push({ sessionId, expiresAt, inUse: false })
+			totalLoaded++
+
+			// Track counts for logging
+			const modelName = Object.entries(MODEL_MAP).find(([_, v]) => v === modelId)?.[0] || modelId.slice(0, 10) + '...'
+			modelCounts[modelName] = (modelCounts[modelName] || 0) + 1
+		}
+
+		// Log summary
+		const modelCount = sessionPools.size
+		const topModels = Object.entries(modelCounts)
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 5)
+			.map(([m, c]) => `${m.slice(0, 12)}...:${c}`)
+			.join(', ')
+
+		console.log(`[morpheus-proxy] Preloaded ${totalLoaded} sessions across ${modelCount} models (top: ${topModels})`)
+	} catch (e) {
+		console.warn(`[morpheus-proxy] Session preload failed: ${e.message}`)
+	}
+}
 
 // --- Helpers ---
 
@@ -212,15 +307,33 @@ async function openSession(modelId) {
 }
 
 async function getOrCreateSession(modelId) {
+	// FIRST: Try to claim from session pool (supports concurrency)
+	const poolClaim = claimSessionFromPool(modelId)
+	if (poolClaim) {
+		return poolClaim // { sessionId, release }
+	}
+
+	// All pool sessions are in use OR no sessions exist for this model
+	const stats = getPoolStats(modelId)
+	const modelName = Object.entries(MODEL_MAP).find(([_, v]) => v === modelId)?.[0] || modelId.slice(0, 10)
+
+	if (stats.total > 0) {
+		// We HAVE staked sessions for this model, but all are currently busy
+		// Return rate limit error - caller should retry later
+		// DO NOT try to open a new session via bidding (causes "provider not found")
+		console.log(`[morpheus-proxy] Session error: All ${stats.total} lanes for ${modelName} are busy (${stats.inUse} in use). Retry shortly.`)
+		throw new Error(`All ${stats.total} lanes for ${modelName} are busy (${stats.inUse} in use). Retry shortly.`)
+	}
+
+	// FALLBACK: Check legacy single-session map
 	const existing = sessions.get(modelId)
 	if (existing && Date.now() < existing.expiresAt) {
-		return existing.sessionId
+		console.warn(`[morpheus-proxy] Using legacy single session for ${modelName} - concurrent requests may fail`)
+		return { sessionId: existing.sessionId, release: () => {} }
 	}
-	// Session expired or doesn't exist — open a new one
-	if (existing) {
-		console.log(`[morpheus-proxy] Session for ${modelId} expired, opening new one`)
-	}
-	return openSession(modelId)
+
+	// No sessions at all - we haven't staked for this model
+	throw new Error(`No staked sessions for ${modelName}. Stake MOR to use this model.`)
 }
 
 function resolveModelId(modelName) {
@@ -372,15 +485,30 @@ async function handleChatCompletions(_req, res, body) {
 
 	// --- Attempt 1: use existing/new session ---
 	let sessionId
+	let releaseSession = () => {} // no-op by default
 	try {
-		sessionId = await getOrCreateSession(modelId)
+		const claim = await getOrCreateSession(modelId)
+		sessionId = claim.sessionId
+		releaseSession = claim.release || (() => {})
 	} catch (e) {
-		console.error(`[morpheus-proxy] Session open error: ${e.message}`)
-		// This is a Morpheus infrastructure error, NOT a billing error
+		const errMsg = e.message || ''
+		console.error(`[morpheus-proxy] Session error: ${errMsg}`)
+
+		// "All lanes busy" → 429 rate limit (retryable)
+		if (errMsg.includes('lanes') && errMsg.includes('busy')) {
+			return oaiError(res, 429, errMsg, 'rate_limit_error', 'all_lanes_busy')
+		}
+
+		// "No staked sessions" → 503 service unavailable (need to stake)
+		if (errMsg.includes('No staked sessions')) {
+			return oaiError(res, 503, errMsg, 'server_error', 'no_staked_sessions')
+		}
+
+		// Other session errors → 502
 		return oaiError(
 			res,
 			502,
-			`Morpheus session unavailable: ${e.message}`,
+			`Morpheus session unavailable: ${errMsg}`,
 			'server_error',
 			'morpheus_session_error',
 		)
@@ -401,9 +529,13 @@ async function handleChatCompletions(_req, res, body) {
 			}
 			res.writeHead(result.status, outHeaders)
 			result.stream.on('data', (chunk) => res.write(chunk))
-			result.stream.on('end', () => res.end())
+			result.stream.on('end', () => {
+				releaseSession() // Release lane when stream completes
+				res.end()
+			})
 			result.stream.on('error', (e) => {
 				console.error(`[morpheus-proxy] Stream error: ${e.message}`)
+				releaseSession() // Release lane on stream error
 				res.end()
 			})
 			return
@@ -414,6 +546,7 @@ async function handleChatCompletions(_req, res, body) {
 
 		// If router returned success, pass through
 		if (result.status >= 200 && result.status < 300) {
+			releaseSession() // Release lane on success
 			res.writeHead(result.status, {
 				'Content-Type': result.headers['content-type'] || 'application/json',
 			})
@@ -423,6 +556,7 @@ async function handleChatCompletions(_req, res, body) {
 
 		// If it's an auth error (stale cookie), invalidate and retry
 		if (isAuthError(bodyStr)) {
+			releaseSession() // Release lane before retry
 			console.log('[morpheus-proxy] Auth error detected - refreshing cookie and retrying')
 			invalidateAuth()
 			getBasicAuth(true) // force re-read cookie file
@@ -431,6 +565,7 @@ async function handleChatCompletions(_req, res, body) {
 		}
 		// If it's a session error, we can retry with a fresh session
 		else if (isSessionError(result.status, bodyStr)) {
+			releaseSession() // Release lane before retry
 			console.log(
 				`[morpheus-proxy] Session error detected (${result.status}), will retry with new session`,
 			)
@@ -439,6 +574,7 @@ async function handleChatCompletions(_req, res, body) {
 			// Fall through to retry below
 		} else {
 			// Non-session upstream error — return as server_error (not billing!)
+			releaseSession() // Release lane on error
 			console.error(
 				`[morpheus-proxy] Router error (${result.status}): ${bodyStr.substring(0, 200)}`,
 			)
@@ -451,6 +587,7 @@ async function handleChatCompletions(_req, res, body) {
 			)
 		}
 	} catch (e) {
+		releaseSession() // Release lane on error
 		if (e.message === 'upstream_timeout') {
 			console.error('[morpheus-proxy] Upstream timed out on attempt 1')
 			return oaiError(res, 504, 'Morpheus inference timed out', 'server_error', 'timeout')
@@ -544,6 +681,7 @@ function handleModels(_req, res) {
 }
 
 function handleHealth(_req, res) {
+	// Legacy single-session list (for backwards compatibility)
 	const activeSessions = []
 	for (const [modelId, sess] of sessions) {
 		const modelName = Object.entries(MODEL_MAP).find(([_, v]) => v === modelId)?.[0] || modelId
@@ -554,11 +692,42 @@ function handleHealth(_req, res) {
 			active: Date.now() < sess.expiresAt,
 		})
 	}
+
+	// Session pool stats (new multi-session support)
+	const sessionPoolByModel = []
+	let totalSessions = 0
+	let totalAvailable = 0
+	let totalInUse = 0
+
+	for (const [modelId, pool] of sessionPools) {
+		const modelName = Object.entries(MODEL_MAP).find(([_, v]) => v === modelId)?.[0] || modelId
+		const stats = getPoolStats(modelId)
+		sessionPoolByModel.push({
+			model: modelName,
+			total: stats.total,
+			available: stats.available,
+			inUse: stats.inUse
+		})
+		totalSessions += stats.total
+		totalAvailable += stats.available
+		totalInUse += stats.inUse
+	}
+
 	res.writeHead(200, { 'Content-Type': 'application/json' })
 	res.end(
 		JSON.stringify({
 			status: 'ok',
 			routerUrl: ROUTER_URL,
+			walletAddress: WALLET_ADDRESS || null,
+			// Session pool summary (1 stake = 1 concurrent lane)
+			sessionPool: {
+				totalSessions,
+				totalAvailable,
+				totalInUse
+			},
+			// Per-model breakdown
+			sessionPoolByModel,
+			// Legacy format (backwards compat)
 			activeSessions,
 			availableModels: Object.keys(MODEL_MAP),
 		}),
@@ -622,9 +791,14 @@ server.keepAliveTimeout = 300000
 server.listen(PROXY_PORT, '127.0.0.1', async () => {
 	console.log(`[morpheus-proxy] Listening on http://127.0.0.1:${PROXY_PORT}`)
 	console.log(`[morpheus-proxy] Router: ${ROUTER_URL}`)
+	console.log(`[morpheus-proxy] Cookie: ${COOKIE_PATH}`)
 	console.log(
 		`[morpheus-proxy] Session duration: ${SESSION_DURATION}s, renew before: ${RENEW_BEFORE_SEC}s`,
 	)
+
+	// Preload existing blockchain sessions (1 stake = 1 concurrent lane)
+	// IMPORTANT: Requires MORPHEUS_WALLET_ADDRESS to be set
+	await preloadExistingSessions()
 
 	// Refresh model map from router on startup
 	await refreshModelMap()
